@@ -12,11 +12,6 @@
     "start": "bun run dist/index.mjs"
   },
   "dependencies": {
-    "@crikket/api": "workspace:*",
-    "@crikket/auth": "workspace:*",
-    "@crikket/bug-reports": "workspace:*",
-    "@crikket/db": "workspace:*",
-    "@crikket/env": "workspace:*",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
@@ -29,6 +24,11 @@
   },
   "devDependencies": {
     "@crikket/config": "workspace:*",
+    "@crikket/api": "workspace:*",
+    "@crikket/auth": "workspace:*",
+    "@crikket/bug-reports": "workspace:*",
+    "@crikket/db": "workspace:*",
+    "@crikket/env": "workspace:*",
     "@types/bun": "catalog:",
     "tsdown": "^0.16.5",
     "typescript": "catalog:"
