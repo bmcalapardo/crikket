@@ -70,8 +70,13 @@ Optional services:
   Important project settings:
 
   - Root Directory: `apps/server`
-  - Runtime: default Vercel Hono deployment is fine
-  - Build Output Directory: `.dist`
+  - **Include source files outside of the Root Directory in the Build Step**: enabled (required for workspace packages in `packages/*`)
+  - Framework Preset: **Other** (do not use the Hono preset; it runs `src/index.ts` directly and cannot load workspace `.ts` exports)
+  - Build Command (override): `bun run build` (runs `tsdown` and writes `dist/index.mjs`)
+  - Install Command: `bun install` (or `cd ../.. && bun install --frozen-lockfile` if workspace links fail)
+  - Production entry: `api/index.js` re-exports the bundle from `dist/index.mjs` (configured in `apps/server/vercel.json`)
+
+  The server bundle is emitted to `dist/` during the build step, not `.dist`.
 
   </Step>
 
