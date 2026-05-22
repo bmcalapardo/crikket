@@ -270,6 +270,4 @@ app.get("/", (c) => {
   return c.text("OK")
 })
 
-export const config = { runtime: "edge" };
-
 export default app
