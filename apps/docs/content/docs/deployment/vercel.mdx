@@ -72,17 +72,19 @@ Optional services:
   - Root Directory: `apps/server`
   - **Include source files outside of the Root Directory in the Build Step**: enabled (required for workspace packages in `packages/*`)
   - Framework Preset: **Other** (do not use the Hono preset; it runs `src/index.ts` directly and cannot load workspace `.ts` exports)
-  - Build Command: `bun run build` (also set in `apps/server/vercel.json`; runs `tsdown` → `dist/**`)
+  - Build Command: `bun run build` (also set in `apps/server/vercel.json`)
   - Install Command: `cd ../.. && bun install --frozen-lockfile` (also set in `vercel.json`)
   - Output Directory (override): `public` (empty directory in the repo; satisfies static output for Framework **Other**)
-  - Production entry: `api/index.js` → `../dist/index.mjs` with `vercel.json` `includeFiles: "dist/**"` (same bundle tree Docker uses)
+  - Production entry: `api/index.js` → `api/_bundle/app.mjs` (single-file Bun bundle; `dist/` is Docker-only)
 
-  Build layout (matches Docker):
+  Build layout:
 
   ```text
-  bun run build → dist/index.mjs + dist/*.mjs chunks
-  api/index.js    (thin handler via hono/vercel → ../dist/index.mjs)
-  vercel.json     (includeFiles dist/**, rewrites to /api)
+  bun run build
+    → dist/index.mjs + chunks   (Docker CMD)
+    → api/_bundle/app.mjs       (single file for Vercel)
+  api/index.js                  (hono/vercel handle → ./_bundle/app.mjs)
+  vercel.json                   (includeFiles api/_bundle/**, rewrites to /api)
   ```
 
   Do not set Output Directory to `.` or `dist`. Do not use the Hono Framework Preset.
@@ -170,7 +172,7 @@ Optional services:
 
   - Response body is raw `import app from ...` (static `api/index.js` mis-served)
   - Function logs reference `src/index.js` or `@crikket/api/src/*.ts`
-  - `ERR_MODULE_NOT_FOUND` for `dist/index.mjs` (build did not run, or `includeFiles` / `vercel.json` not deployed — redeploy latest commit with **Clear build cache**)
+  - `ERR_MODULE_NOT_FOUND` for `dist/index.mjs` (stale deploy still using old handler — redeploy latest commit with **Clear build cache**; current handler uses `api/_bundle/app.mjs`, not `dist/`)
 
   **Build log should show** `tsdown` completing. **Function logs** should reference `api/index.js` or the bundled app, not transpiled `src/`.
 

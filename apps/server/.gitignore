@@ -1,5 +1,6 @@
 # prod
 dist/
+api/_bundle/
 api/*.mjs
 /build
 /out/

@@ -3,7 +3,7 @@
   "buildCommand": "bun run build",
   "functions": {
     "api/index.js": {
-      "includeFiles": "dist/**"
+      "includeFiles": "api/_bundle/**"
     }
   },
   "rewrites": [
