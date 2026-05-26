@@ -1,8 +1,6 @@
-import { access, mkdir } from "node:fs/promises"
+import { access } from "node:fs/promises"
 
-await mkdir("api/_bundle", { recursive: true })
-
-const requiredArtifacts = ["dist/index.mjs", "api/_bundle/app.mjs"]
+const requiredArtifacts = ["dist/index.mjs", "api/index.js"]
 
 for (const artifactPath of requiredArtifacts) {
   try {

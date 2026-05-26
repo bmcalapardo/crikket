@@ -75,17 +75,18 @@ Optional services:
   - Build Command: `bun run build` (also set in `apps/server/vercel.json`)
   - Install Command: `cd ../.. && bun install --frozen-lockfile` (also set in `vercel.json`)
   - Output Directory (override): `public` (empty directory in the repo; satisfies static output for Framework **Other**)
-  - Production entry: `api/index.js` → `api/_bundle/app.mjs` (single-file Bun bundle; `dist/` is Docker-only)
+  - Production entry: `api/index.js` only (generated at build from `src/vercel.ts`; do not add `api/index.mjs`)
 
   Build layout:
 
   ```text
   bun run build
     → dist/index.mjs + chunks   (Docker CMD)
-    → api/_bundle/app.mjs       (single file for Vercel)
-  api/index.js                  (hono/vercel handle → ./_bundle/app.mjs)
-  vercel.json                   (includeFiles api/_bundle/**, rewrites to /api)
+    → api/index.js              (single bundled Vercel handler; not committed)
+  vercel.json                   (rewrites to /api)
   ```
+
+  Vercel rejects both `api/index.js` and `api/index.mjs` in the same deployment — use only the generated `api/index.js`.
 
   Do not set Output Directory to `.` or `dist`. Do not use the Hono Framework Preset.
 
@@ -172,7 +173,7 @@ Optional services:
 
   - Response body is raw `import app from ...` (static `api/index.js` mis-served)
   - Function logs reference `src/index.js` or `@crikket/api/src/*.ts`
-  - `ERR_MODULE_NOT_FOUND` for `dist/index.mjs` (stale deploy still using old handler — redeploy latest commit with **Clear build cache**; current handler uses `api/_bundle/app.mjs`, not `dist/`)
+  - `ERR_MODULE_NOT_FOUND` or conflicting `api/index.js` / `api/index.mjs` paths (stale deploy or build did not run — redeploy with **Clear build cache**; build log must show `api/index.js` / `Bundled 2417 modules`)
 
   **Build log should show** `tsdown` completing. **Function logs** should reference `api/index.js` or the bundled app, not transpiled `src/`.
 

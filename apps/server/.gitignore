@@ -1,7 +1,8 @@
 # prod
 dist/
+api/index.js
+api/index.mjs
 api/_bundle/
-api/*.mjs
 /build
 /out/
 

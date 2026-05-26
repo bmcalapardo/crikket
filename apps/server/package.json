@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsdown && bun run build:vercel && node scripts/verify-vercel-build.mjs",
-    "build:vercel": "bun build src/index.ts --outfile api/_bundle/app.mjs --target node --minify",
+    "build:vercel": "bun build src/vercel.ts --outfile api/index.js --target node --minify",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "bun run --hot src/index.ts",
