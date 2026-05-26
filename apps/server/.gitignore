@@ -1,6 +1,6 @@
 # prod
 dist/
-api/server.mjs
+api/*.mjs
 /build
 /out/
 

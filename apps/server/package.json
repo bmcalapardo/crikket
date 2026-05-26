@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsdown && bun -e \"await Bun.write('api/server.mjs', Bun.file('dist/index.mjs'))\"",
+    "build": "tsdown && node scripts/verify-vercel-build.mjs",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "bun run --hot src/index.ts",
