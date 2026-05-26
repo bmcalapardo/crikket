@@ -28,7 +28,7 @@ Use:
 ## What This Deployment Uses
 
 - two Vercel projects from the same monorepo
-- `apps/server` as a Hono app
+- `apps/server` as a bundled Hono API (same `tsdown` output as Docker, adapted for Vercel serverless)
 - `apps/web` as a Next.js app
 - a managed PostgreSQL database
 - S3-compatible object storage
@@ -72,11 +72,22 @@ Optional services:
   - Root Directory: `apps/server`
   - **Include source files outside of the Root Directory in the Build Step**: enabled (required for workspace packages in `packages/*`)
   - Framework Preset: **Other** (do not use the Hono preset; it runs `src/index.ts` directly and cannot load workspace `.ts` exports)
-  - Build Command (override): `bun run build` (runs `tsdown` and writes `dist/index.mjs`)
-  - Install Command: `bun install` (or `cd ../.. && bun install --frozen-lockfile` if workspace links fail)
-  - Production entry: `api/index.js` re-exports the bundle from `dist/index.mjs` (configured in `apps/server/vercel.json`)
+  - Build Command (override): `bun run build` (runs `tsdown`, writes `dist/index.mjs`, copies to `api/server.mjs`)
+  - Install Command (override): `cd ../.. && bun install --frozen-lockfile` (recommended for workspace links)
+  - Output Directory (override): `public` (empty directory in the repo; satisfies static output for Framework **Other**)
+  - Production entry: `api/index.js` imports `api/server.mjs` (same bundle Docker runs from `dist/index.mjs`)
 
-  The server bundle is emitted to `dist/` during the build step, not `.dist`.
+  Build layout (matches Docker):
+
+  ```text
+  bun run build
+    → dist/index.mjs     (Docker CMD uses this path)
+    → api/server.mjs     (copy for Vercel; colocated with api/index.js)
+  api/index.js           (thin handler via hono/vercel)
+  vercel.json            (rewrites all routes to /api)
+  ```
+
+  Do not set Output Directory to `.` or `dist`. Do not use the Hono Framework Preset.
 
   </Step>
 
@@ -137,7 +148,15 @@ Optional services:
 
   Finish the DNS records Vercel gives you, then deploy the server project.
 
-  Quick verification:
+  </Step>
+
+  <Step>
+
+  ### Verify the server deployment
+
+  After each server deploy, confirm the bundle-based entry is live (not the old Hono `src/index.ts` path).
+
+  **Health check:**
 
   ```bash
   curl https://api.example.com/
@@ -148,6 +167,16 @@ Optional services:
   ```text
   OK
   ```
+
+  **Must not happen:**
+
+  - Response body is raw `import app from ...` (static `api/index.js` mis-served)
+  - Function logs reference `src/index.js` or `@crikket/api/src/*.ts`
+  - `ERR_MODULE_NOT_FOUND` for `dist/index.mjs` (build did not copy `api/server.mjs`)
+
+  **Build log should show** `tsdown` completing. **Function logs** should reference `api/index.js` or the bundled app, not transpiled `src/`.
+
+  Redeploy after changing project settings until the dashboard no longer warns that production settings differ from project settings.
 
   </Step>
 

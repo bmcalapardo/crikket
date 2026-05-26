@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && bun -e \"await Bun.write('api/server.mjs', Bun.file('dist/index.mjs'))\"",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "bun run --hot src/index.ts",
@@ -24,12 +24,12 @@
     "better-auth": "catalog:",
     "dotenv": "catalog:",
     "hono": "catalog:",
+    "tsdown": "^0.16.5",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@crikket/config": "workspace:*",
     "@types/bun": "catalog:",
-    "tsdown": "^0.16.5",
     "typescript": "catalog:"
   }
 }

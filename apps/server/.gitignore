@@ -1,5 +1,6 @@
 # prod
 dist/
+api/server.mjs
 /build
 /out/
 

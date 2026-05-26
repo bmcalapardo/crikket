@@ -88,12 +88,12 @@
         "better-auth": "catalog:",
         "dotenv": "catalog:",
         "hono": "catalog:",
+        "tsdown": "^0.16.5",
         "zod": "catalog:",
       },
       "devDependencies": {
         "@crikket/config": "workspace:*",
         "@types/bun": "catalog:",
-        "tsdown": "^0.16.5",
         "typescript": "catalog:",
       },
     },

@@ -1,2 +1,4 @@
-import app from '../dist/index.mjs';
-export default app;
+import { handle } from "hono/vercel"
+import app from "./server.mjs"
+
+export default handle(app)

@@ -38,62 +38,66 @@ function resetState(): void {
   state.externalCustomerListResults = []
 }
 
-mock.module(`${BILLING_SRC}/lib/payments.ts`, () => ({
-  polarClient: {
-    subscriptions: {
-      get: (input: { id: string }) => {
-        const subscription = state.subscriptionsById.get(input.id)
-        if (!subscription) {
-          const error = new Error("ResourceNotFound")
-          ;(error as Error & { error: string }).error = "ResourceNotFound"
-          throw error
-        }
+function registerPaymentsMock(): void {
+  mock.module(`${BILLING_SRC}/lib/payments.ts`, () => ({
+    polarClient: {
+      subscriptions: {
+        get: (input: { id: string }) => {
+          const subscription = state.subscriptionsById.get(input.id)
+          if (!subscription) {
+            const error = new Error("ResourceNotFound")
+            ;(error as Error & { error: string }).error = "ResourceNotFound"
+            throw error
+          }
 
-        return subscription
-      },
-      list: (input: {
-        metadata?: { referenceId: string }
-        customerId?: string
-        externalCustomerId?: string
-        page: number
-      }) => {
-        if (input.page !== 1) {
+          return subscription
+        },
+        list: (input: {
+          metadata?: { referenceId: string }
+          customerId?: string
+          externalCustomerId?: string
+          page: number
+        }) => {
+          if (input.page !== 1) {
+            return { result: { items: [] as TestSubscription[] } }
+          }
+
+          if (input.metadata?.referenceId) {
+            return {
+              result: {
+                items: state.metadataListResults,
+              },
+            }
+          }
+
+          if (input.customerId) {
+            return {
+              result: {
+                items: state.customerListResults,
+              },
+            }
+          }
+
+          if (input.externalCustomerId) {
+            return {
+              result: {
+                items: state.externalCustomerListResults,
+              },
+            }
+          }
+
           return { result: { items: [] as TestSubscription[] } }
-        }
-
-        if (input.metadata?.referenceId) {
-          return {
-            result: {
-              items: state.metadataListResults,
-            },
-          }
-        }
-
-        if (input.customerId) {
-          return {
-            result: {
-              items: state.customerListResults,
-            },
-          }
-        }
-
-        if (input.externalCustomerId) {
-          return {
-            result: {
-              items: state.externalCustomerListResults,
-            },
-          }
-        }
-
-        return { result: { items: [] as TestSubscription[] } }
+        },
       },
     },
-  },
-}))
+  }))
+}
 
 let findUpdatableSubscription: typeof import("../src/service/checkout/subscription-discovery").findUpdatableSubscription
 
 beforeAll(async () => {
+  mock.restore()
+  registerPaymentsMock()
   ;({ findUpdatableSubscription } = await import(
     `${BILLING_SRC}/service/checkout/subscription-discovery.ts`
   ))

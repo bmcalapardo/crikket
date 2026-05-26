@@ -7,7 +7,11 @@ import {
   it,
   mock,
 } from "bun:test"
+import { ensureBillingTestEnv } from "./utils/env"
 import { BILLING_SRC } from "./utils/paths"
+import { mockPolarPayloadModule } from "./utils/polar-payload-mock"
+
+ensureBillingTestEnv()
 
 type BillingAccountSnapshot = {
   polarCustomerId: string | null
@@ -131,10 +135,6 @@ mock.module(`${BILLING_SRC}/service/entitlements/projection.ts`, () => ({
   },
 }))
 
-mock.module(`${BILLING_SRC}/service/polar-payload.ts`, () => ({
-  resolvePlanFromProductId: () => state.resolvedPlanFromProductId,
-}))
-
 mock.module(`${BILLING_SRC}/service/checkout/checkout-session.ts`, () => ({
   createOrganizationCheckoutSession: (input: {
     organizationId: string
@@ -154,22 +154,44 @@ mock.module(`${BILLING_SRC}/service/checkout/shared.ts`, () => ({
   resolveProductIdByPlan: () => state.targetProductId,
 }))
 
-mock.module(
-  `${BILLING_SRC}/service/checkout/subscription-discovery.ts`,
-  () => ({
-    findUpdatableSubscription: (input: {
-      organizationId: string
-      billingAccount?: BillingAccountSnapshot | null
-    }) => {
-      calls.findUpdatableSubscription.push(input)
-      return Promise.resolve(state.updatableSubscription)
-    },
-  })
-)
-
 let changeOrganizationPlan: typeof import("../src/service/checkout/plan-change").changeOrganizationPlan
+let realFindUpdatableSubscription: typeof import("../src/service/checkout/subscription-discovery").findUpdatableSubscription
+
+function registerSubscriptionDiscoveryMock(): void {
+  mock.module(
+    `${BILLING_SRC}/service/checkout/subscription-discovery.ts`,
+    () => ({
+      findUpdatableSubscription: (input: {
+        organizationId: string
+        billingAccount?: BillingAccountSnapshot | null
+      }) => {
+        calls.findUpdatableSubscription.push(input)
+        return Promise.resolve(state.updatableSubscription)
+      },
+    })
+  )
+}
+
+function restoreSubscriptionDiscoveryModule(): void {
+  mock.module(
+    `${BILLING_SRC}/service/checkout/subscription-discovery.ts`,
+    () => ({
+      findUpdatableSubscription: realFindUpdatableSubscription,
+    })
+  )
+}
 
 beforeAll(async () => {
+  const subscriptionDiscoveryModule = await import(
+    `${BILLING_SRC}/service/checkout/subscription-discovery.ts`
+  )
+  realFindUpdatableSubscription =
+    subscriptionDiscoveryModule.findUpdatableSubscription
+
+  await mockPolarPayloadModule({
+    resolvePlanFromProductId: () => state.resolvedPlanFromProductId,
+  })
+  registerSubscriptionDiscoveryMock()
   ;({ changeOrganizationPlan } = await import(
     `${BILLING_SRC}/service/checkout/plan-change.ts`
   ))
@@ -180,6 +202,7 @@ beforeEach(() => {
 })
 
 afterAll(() => {
+  restoreSubscriptionDiscoveryModule()
   mock.restore()
 })
 

@@ -1,12 +1,20 @@
-import { beforeAll, describe, expect, it } from "bun:test"
+import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test"
 import { ensureBillingTestEnv } from "./utils/env"
+import { BILLING_SRC } from "./utils/paths"
 
 ensureBillingTestEnv()
 
 let extractProviderEventId: typeof import("../src/service/polar-payload").extractProviderEventId
 
 beforeAll(async () => {
-  ;({ extractProviderEventId } = await import("../src/service/polar-payload"))
+  mock.restore()
+  ;({ extractProviderEventId } = await import(
+    `${BILLING_SRC}/service/polar-payload.ts`
+  ))
+})
+
+afterAll(() => {
+  mock.restore()
 })
 
 describe("extractProviderEventId flow", () => {
