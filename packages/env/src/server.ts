@@ -41,6 +41,10 @@ export const env = createEnv({
       .enum(["true", "false"])
       .default("true")
       .transform((v) => v === "true"),
+    POLAR_CREATE_CUSTOMER_ON_SIGN_UP: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
     GOOGLE_CLIENT_ID: z.string().min(1).optional(),
     GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
     STORAGE_BUCKET: z.string().min(1).optional(),

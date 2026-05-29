@@ -14,6 +14,8 @@ import { and, asc, eq, lte } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import type { BugReportArtifactKind } from "./artifact-storage"
 
+export { isExpiringSignedUrl } from "./signed-url-utils"
+
 export interface StorageProvider {
   save(filename: string, data: Buffer | Blob): Promise<void>
   getUrl(filename: string): Promise<string>
@@ -202,22 +204,6 @@ export async function resolveCaptureUrl(input: {
   }
 
   return await storageProvider.getUrl(input.captureKey)
-}
-
-export function isExpiringSignedUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-
-    return (
-      parsed.searchParams.has("X-Amz-Algorithm") ||
-      parsed.searchParams.has("X-Amz-Signature") ||
-      parsed.searchParams.has("AWSAccessKeyId") ||
-      parsed.searchParams.has("Signature") ||
-      parsed.searchParams.has("Expires")
-    )
-  } catch {
-    return false
-  }
 }
 
 export async function removeCaptureArtifactEventually(

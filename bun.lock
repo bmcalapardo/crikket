@@ -179,6 +179,7 @@
         "@polar-sh/sdk": "catalog:",
         "@react-email/components": "catalog:",
         "@react-email/render": "catalog:",
+        "@upstash/redis": "catalog:",
         "better-auth": "catalog:",
         "dotenv": "catalog:",
         "drizzle-orm": "catalog:",

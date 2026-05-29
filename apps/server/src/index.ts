@@ -17,9 +17,13 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
+import { runAuthPreHandlerProbes } from "./auth-debug-probes"
 import { handleCaptureFinalize } from "./capture/finalize-route"
 import { handleCaptureToken } from "./capture/token-route"
 import { handleCaptureUploadSession } from "./capture/upload-session-route"
+import { writeDebugLog } from "./debug-log"
+
+const AUTH_HANDLER_HEARTBEAT_MS = 15_000
 
 const app = new Hono()
 const allowedCorsOrigins = env.CORS_ORIGINS
@@ -126,7 +130,119 @@ app.use(
   })
 )
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw))
+app.on(["POST", "GET"], "/api/auth/*", async (c) => {
+  const authPath = c.req.path
+  const authMethod = c.req.method
+  const authStartedAt = Date.now()
+  const isSignUpRequest =
+    authMethod === "POST" && authPath.endsWith("/sign-up/email")
+  const contentLengthHeader = c.req.raw.headers.get("content-length")
+
+  writeDebugLog({
+    hypothesisId: "D",
+    location: "apps/server/src/index.ts:auth-route",
+    message: "auth-handler-start",
+    data: {
+      authMethod,
+      authPath,
+      isSignUpRequest,
+      contentLength: contentLengthHeader,
+    },
+  })
+
+  const heartbeat = setInterval(() => {
+    writeDebugLog({
+      hypothesisId: "D",
+      location: "apps/server/src/index.ts:auth-route",
+      message: "auth-handler-heartbeat",
+      data: {
+        authMethod,
+        authPath,
+        elapsedMs: Date.now() - authStartedAt,
+      },
+    })
+  }, AUTH_HANDLER_HEARTBEAT_MS)
+  heartbeat.unref?.()
+
+  let authRequest: Request = c.req.raw
+
+  if (isSignUpRequest) {
+    await runAuthPreHandlerProbes(authPath)
+
+    const signUpBodyReadStartedAt = Date.now()
+    try {
+      const signUpBody = await c.req.text()
+      writeDebugLog({
+        hypothesisId: "I",
+        location: "apps/server/src/index.ts:auth-route",
+        message: "signup-body-read",
+        data: {
+          bodyLength: signUpBody.length,
+          durationMs: Date.now() - signUpBodyReadStartedAt,
+        },
+      })
+
+      authRequest = new Request(c.req.url, {
+        method: c.req.method,
+        headers: c.req.raw.headers,
+        body: signUpBody,
+      })
+    } catch (error) {
+      writeDebugLog({
+        hypothesisId: "I",
+        location: "apps/server/src/index.ts:auth-route",
+        message: "signup-body-read-error",
+        data: {
+          durationMs: Date.now() - signUpBodyReadStartedAt,
+          error:
+            error instanceof Error ? error.message : "unknown-body-read-error",
+        },
+      })
+    }
+  }
+
+  let authResponse: Response
+  try {
+    writeDebugLog({
+      hypothesisId: "D",
+      location: "apps/server/src/index.ts:auth-route",
+      message: "auth-handler-invoke",
+      data: { authMethod, authPath, elapsedMs: Date.now() - authStartedAt },
+    })
+
+    authResponse = await auth.handler(authRequest)
+  } catch (error) {
+    writeDebugLog({
+      hypothesisId: "D",
+      location: "apps/server/src/index.ts:auth-route",
+      message: "auth-handler-error",
+      data: {
+        authMethod,
+        authPath,
+        durationMs: Date.now() - authStartedAt,
+        error:
+          error instanceof Error ? error.message : "unknown-auth-handler-error",
+      },
+    })
+    throw error
+  } finally {
+    clearInterval(heartbeat)
+  }
+
+  writeDebugLog({
+    hypothesisId: "D",
+    location: "apps/server/src/index.ts:auth-route",
+    message: "auth-handler-finished",
+    data: {
+      authMethod,
+      authPath,
+      durationMs: Date.now() - authStartedAt,
+      status: authResponse.status,
+    },
+  })
+
+  return authResponse
+})
 app.post("/api/embed/capture-token", (c) => {
   return handleCaptureToken({
     request: c.req.raw,

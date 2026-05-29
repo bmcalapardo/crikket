@@ -31,6 +31,7 @@
     "@orpc/server": "catalog:",
     "@react-email/components": "catalog:",
     "@react-email/render": "catalog:",
+    "@upstash/redis": "catalog:",
     "drizzle-orm": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
