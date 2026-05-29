@@ -75,18 +75,19 @@ Optional services:
   - Build Command: `bun run build` (also set in `apps/server/vercel.json`)
   - Install Command: `cd ../.. && bun install --frozen-lockfile` (also set in `vercel.json`)
   - Output Directory (override): `public` (empty directory in the repo; satisfies static output for Framework **Other**)
-  - Production entry: `api/index.js` only (generated at build from `src/vercel.ts`; do not add `api/index.mjs`)
+  - Production entry: committed `api/index.js` re-exports build output `api/_handler.js` (underscore dir is not a separate function route)
 
   Build layout:
 
   ```text
   bun run build
     → dist/index.mjs + chunks   (Docker CMD)
-    → api/index.js              (single bundled Vercel handler; not committed)
-  vercel.json                   (rewrites to /api)
+    → api/_handler.js           (bundled app + hono/vercel handle)
+  api/index.js                  (committed: export { default } from "./_handler.js")
+  vercel.json                   (rewrite /api/* → /api, includeFiles api/_handler.js)
   ```
 
-  Vercel rejects both `api/index.js` and `api/index.mjs` in the same deployment — use only the generated `api/index.js`.
+  Nested paths such as `/api/auth/get-session` require the `/api/(.*)` rewrite — without it, Vercel returns 404/307 before Hono runs.
 
   Do not set Output Directory to `.` or `dist`. Do not use the Hono Framework Preset.
 

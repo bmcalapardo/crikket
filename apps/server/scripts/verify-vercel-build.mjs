@@ -1,6 +1,6 @@
 import { access } from "node:fs/promises"
 
-const requiredArtifacts = ["dist/index.mjs", "api/index.js"]
+const requiredArtifacts = ["dist/index.mjs", "api/_handler.js"]
 
 for (const artifactPath of requiredArtifacts) {
   try {
