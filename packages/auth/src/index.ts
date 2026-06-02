@@ -22,7 +22,6 @@ import {
   sendEmailVerificationLinkEmail,
   sendOrganizationInvitationEmail,
 } from "./lib/email/auth-emails"
-import { writeAuthDebugLog } from "./lib/write-auth-debug-log"
 
 const MINUTE = 60
 const HOUR = 60 * MINUTE
@@ -117,20 +116,6 @@ const paymentsPlugins = env.ENABLE_PAYMENTS
     })()
   : []
 
-writeAuthDebugLog({
-  hypothesisId: "C",
-  location: "packages/auth/src/index.ts:payments-init",
-  message: "auth-payments-config",
-  data: {
-    enablePayments: env.ENABLE_PAYMENTS,
-    hasPolarAccessToken: Boolean(env.POLAR_ACCESS_TOKEN),
-    createCustomerOnSignUp: env.POLAR_CREATE_CUSTOMER_ON_SIGN_UP,
-    rateLimitStorage: authRateLimitStorage,
-    hasUpstashConfig: Boolean(authSecondaryStorage),
-    paymentsPluginCount: paymentsPlugins.length,
-  },
-})
-
 export const auth = betterAuth({
   appName: "crikket",
   database: drizzleAdapter(db, {
@@ -144,12 +129,7 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          writeAuthDebugLog({
-            hypothesisId: "A",
-            location: "packages/auth/src/index.ts:user-create-before",
-            message: "user-create-hook-start",
-            data: { hasEmail: Boolean(user.email) },
-          })
+          // Satisfy the Biome linter's requirement for an await expression
           await Promise.resolve()
 
           const email = user.email?.toLowerCase() ?? ""
@@ -165,85 +145,6 @@ export const auth = betterAuth({
               message: `Sign up is only available for ${allowedSignupDomains.filter((d) => d !== "*").join(", ")} domains.`,
             })
           }
-
-          writeAuthDebugLog({
-            hypothesisId: "A",
-            location: "packages/auth/src/index.ts:user-create-before",
-            message: "user-create-hook-finished",
-            data: {
-              domainAllowed: allowAll || allowedSignupDomains.includes(domain),
-            },
-          })
-        },
-        after: async () => {
-          writeAuthDebugLog({
-            hypothesisId: "A",
-            location: "packages/auth/src/index.ts:user-create-after",
-            message: "user-create-hook-after",
-          })
-          await Promise.resolve()
-        },
-      },
-    },
-    account: {
-      create: {
-        before: async (account) => {
-          writeAuthDebugLog({
-            hypothesisId: "A",
-            location: "packages/auth/src/index.ts:account-create-before",
-            message: "account-create-hook-start",
-            data: { providerId: account.providerId },
-          })
-          await Promise.resolve()
-        },
-        after: async () => {
-          writeAuthDebugLog({
-            hypothesisId: "A",
-            location: "packages/auth/src/index.ts:account-create-after",
-            message: "account-create-hook-finished",
-          })
-          await Promise.resolve()
-        },
-      },
-    },
-    verification: {
-      create: {
-        before: async (verification) => {
-          writeAuthDebugLog({
-            hypothesisId: "B",
-            location: "packages/auth/src/index.ts:verification-create-before",
-            message: "verification-create-hook-start",
-            data: { identifierPrefix: verification.identifier.slice(0, 8) },
-          })
-          await Promise.resolve()
-        },
-        after: async () => {
-          writeAuthDebugLog({
-            hypothesisId: "B",
-            location: "packages/auth/src/index.ts:verification-create-after",
-            message: "verification-create-hook-finished",
-          })
-          await Promise.resolve()
-        },
-      },
-    },
-    session: {
-      create: {
-        before: async () => {
-          writeAuthDebugLog({
-            hypothesisId: "A",
-            location: "packages/auth/src/index.ts:session-create-before",
-            message: "session-create-hook-start",
-          })
-          await Promise.resolve()
-        },
-        after: async () => {
-          writeAuthDebugLog({
-            hypothesisId: "A",
-            location: "packages/auth/src/index.ts:session-create-after",
-            message: "session-create-hook-finished",
-          })
-          await Promise.resolve()
         },
       },
     },
@@ -334,23 +235,10 @@ export const auth = betterAuth({
     }),
     emailOTP({
       sendVerificationOTP: async ({ email, otp, type }) => {
-        const otpStartedAt = Date.now()
-        writeAuthDebugLog({
-          hypothesisId: "B",
-          location: "packages/auth/src/index.ts:sendVerificationOTP",
-          message: "otp-email-start",
-          data: { type, hasEmail: Boolean(email) },
-        })
         await sendEmailOtpEmail({
           email,
           otp,
           type,
-        })
-        writeAuthDebugLog({
-          hypothesisId: "B",
-          location: "packages/auth/src/index.ts:sendVerificationOTP",
-          message: "otp-email-finished",
-          data: { type, durationMs: Date.now() - otpStartedAt },
         })
       },
       sendVerificationOnSignUp: true,

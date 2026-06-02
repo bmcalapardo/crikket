@@ -3,8 +3,6 @@ import { render } from "@react-email/render"
 import type { ReactElement } from "react"
 import { Resend } from "resend"
 
-import { writeAuthDebugLog } from "../write-auth-debug-log"
-
 type SendAuthEmailInput = {
   to: string
   subject: string
@@ -22,16 +20,6 @@ export const sendAuthEmail = async ({
   text,
   react,
 }: SendAuthEmailInput): Promise<void> => {
-  const emailStartedAt = Date.now()
-  writeAuthDebugLog({
-    hypothesisId: "B",
-    location: "packages/auth/src/lib/email/send-auth-email.ts",
-    message: "resend-send-start",
-    data: {
-      hasResendKey: Boolean(resendClient),
-      hasFromEmail: Boolean(fromEmail),
-    },
-  })
   if (!resendClient) {
     if (env.NODE_ENV === "production") {
       throw new Error(
@@ -65,11 +53,4 @@ export const sendAuthEmail = async ({
   if (error) {
     throw new Error(`Failed to send auth email: ${error.message}`)
   }
-
-  writeAuthDebugLog({
-    hypothesisId: "B",
-    location: "packages/auth/src/lib/email/send-auth-email.ts",
-    message: "resend-send-finished",
-    data: { durationMs: Date.now() - emailStartedAt },
-  })
 }
