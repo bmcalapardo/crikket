@@ -77,10 +77,12 @@ export function SignInForm() {
   })
 
   useEffect(() => {
-    if (session) {
-      router.replace("/")
+    if (isPending || !session) {
+      return
     }
-  }, [router, session])
+
+    router.replace("/")
+  }, [router, session, isPending])
 
   const handleGoogleSignIn = async () => {
     setIsSocialSignInPending(true)
@@ -114,7 +116,11 @@ export function SignInForm() {
   }
 
   if (session) {
-    return null
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader />
+      </div>
+    )
   }
 
   return (

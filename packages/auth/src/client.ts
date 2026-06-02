@@ -28,6 +28,7 @@ type AuthClient<Option extends BetterAuthClientOptions> = ReturnType<
 >
 
 export const authClient: AuthClient<AuthClientOptions> = createAuthClient({
-  baseURL: env.NEXT_PUBLIC_SERVER_URL,
+  // Same-origin via apps/web next.config rewrites → /api/auth/* proxies to server.
+  baseURL: env.NEXT_PUBLIC_APP_URL,
   plugins: [adminPlugin, emailOtpPlugin, organizationPlugin, polarPlugin],
 })
