@@ -21,7 +21,12 @@ export const queryClient = new QueryClient({
 })
 
 export const link = new RPCLink({
-  url: `${env.NEXT_PUBLIC_SERVER_URL}/rpc`,
+  // Use the browser's current origin to create an absolute URL for the proxy,
+  // but fall back to the direct server URL during SSR.
+  url:
+    typeof window !== "undefined"
+      ? `${window.location.origin}/rpc`
+      : `${env.NEXT_PUBLIC_SERVER_URL}/rpc`,
   fetch(url, options) {
     return fetch(url, {
       ...options,
