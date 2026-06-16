@@ -35,5 +35,15 @@ export default defineConfig({
     },
     permissions: ["activeTab", "scripting", "storage", "tabCapture", "tabs"],
     host_permissions: ["<all_urls>"],
+
+    browser_specific_settings: {
+      gecko: {
+        id: "crikket-alpha@medgrocer", // Make sure this matches your alpha testing ID
+        strict_min_version: "140.0",
+        data_collection_permissions: {
+          required: ["none"],
+        },
+      } as unknown as Record<string, unknown>,
+    },
   },
 })

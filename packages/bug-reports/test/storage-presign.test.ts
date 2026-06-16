@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test"
+import { afterAll, describe, expect, it, mock } from "bun:test"
 
 const envState: {
   DATABASE_URL: string
@@ -51,14 +51,9 @@ mock.module("@crikket/shared/lib/errors", () => ({
   reportNonFatalError: () => undefined,
 }))
 
-let createS3StorageProvider: typeof import("../src/lib/storage").createS3StorageProvider
-let resolveS3ForcePathStyle: typeof import("../src/lib/storage").resolveS3ForcePathStyle
-
-beforeAll(async () => {
-  ;({ createS3StorageProvider, resolveS3ForcePathStyle } = await import(
-    "../src/lib/storage"
-  ))
-})
+const { createS3StorageProvider, resolveS3ForcePathStyle } = await import(
+  "../src/lib/storage"
+)
 
 afterAll(() => {
   mock.restore()
