@@ -43,7 +43,7 @@ export const bugReport = pgTable(
     debuggerIngestionError: text("debugger_ingestion_error"),
     debuggerIngestedAt: timestamp("debugger_ingested_at"),
     submissionStatus: text("submission_status").default("ready").notNull(),
-    visibility: text("visibility").default("private").notNull(), // public | private
+    visibility: text("visibility").default("public").notNull(), // public | private
     metadata: jsonb("metadata"),
     deviceInfo: jsonb("device_info"), // browser, os, viewport, etc.
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -78,7 +78,7 @@ export const bugReportUploadSession = pgTable(
     tags: text("tags").array(),
     url: text("url"),
     attachmentType: text("attachment_type").notNull(),
-    visibility: text("visibility").default("private").notNull(),
+    visibility: text("visibility").default("public").notNull(),
     captureKey: text("capture_key").notNull(),
     captureContentType: text("capture_content_type").notNull(),
     debuggerKey: text("debugger_key"),
