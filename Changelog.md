@@ -3,3 +3,4 @@
 
 ### v0.1.1
  [BC] app(fix): Console logs not showing
+ [BC] app(update): make bug reports default public
