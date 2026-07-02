@@ -35,6 +35,14 @@ import {
 } from "@/lib/sign-up-organization"
 import { orpc } from "@/utils/orpc"
 
+const REGISTER_ORGANIZATION_MODE_LABELS: Record<
+  RegisterOrganizationMode,
+  string
+> = {
+  join: "Join an existing organization",
+  create: "Create a new organization",
+}
+
 export function SignUpForm() {
   const router = useRouter()
   const { data: session, isPending } = authClient.useSession()
@@ -156,7 +164,9 @@ export function SignUpForm() {
                   value={field.state.value}
                 >
                   <SelectTrigger aria-invalid={isInvalid} id={field.name}>
-                    <SelectValue placeholder="Choose how to set up your organization" />
+                    <SelectValue placeholder="Choose how to set up your organization">
+                      {REGISTER_ORGANIZATION_MODE_LABELS[field.state.value]}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="join">
@@ -183,6 +193,9 @@ export function SignUpForm() {
                   const isInvalid =
                     field.state.meta.isTouched &&
                     field.state.meta.errors.length > 0
+                  const selectedOrganization = organizations.find(
+                    (organization) => organization.id === field.state.value
+                  )
 
                   return (
                     <Field data-invalid={isInvalid}>
@@ -196,7 +209,9 @@ export function SignUpForm() {
                         value={field.state.value}
                       >
                         <SelectTrigger aria-invalid={isInvalid} id={field.name}>
-                          <SelectValue placeholder="Select your organization" />
+                          <SelectValue placeholder="Select your organization">
+                            {selectedOrganization?.name}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {organizations.map((organization) => (
