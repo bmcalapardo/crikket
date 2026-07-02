@@ -60,7 +60,7 @@ export function trimReviewDraftForSubmission(
     title: draft.title.trim(),
     visibility: visibilityValues.has(draft.visibility ?? "")
       ? (draft.visibility as BugReportVisibility)
-      : BUG_REPORT_VISIBILITY_OPTIONS.private,
+      : BUG_REPORT_VISIBILITY_OPTIONS.public,
   }
 }
 

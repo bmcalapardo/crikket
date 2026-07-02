@@ -41,7 +41,7 @@ export async function submitBugReportWithUploads(input: {
     priority: input.priority,
     title: input.title,
     url: input.url,
-    visibility: "private",
+    visibility: "public",
   })
 
   const debuggerArtifact = await buildDebuggerArtifactForUpload(
