@@ -60,7 +60,7 @@ export const createBugReportUploadSessionInputSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   url: z.string().url().optional(),
   attachmentType: z.enum(["video", "screenshot"]),
-  visibility: z.enum(visibilityValues).default("private"),
+  visibility: z.enum(visibilityValues).default("public"),
   metadata: metadataInputSchema,
   deviceInfo: z
     .object({

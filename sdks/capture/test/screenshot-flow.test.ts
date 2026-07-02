@@ -83,7 +83,7 @@ describe("capture SDK screenshot flow", () => {
         title: "Checkout submit is broken",
         description: "Description from regression test",
         priority: "high",
-        visibility: "private",
+        visibility: "public",
         pageTitle: "Buggy Checkout",
         pageUrl: "https://example.com/checkout",
         durationMs: null,

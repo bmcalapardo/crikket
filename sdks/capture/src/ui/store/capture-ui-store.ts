@@ -53,7 +53,7 @@ export function createCaptureUiStore(): CaptureUiStore {
         title: "",
         description: "",
         priority: DEFAULT_PRIORITY,
-        visibility: BUG_REPORT_VISIBILITY_OPTIONS.private,
+        visibility: BUG_REPORT_VISIBILITY_OPTIONS.public,
       },
       reviewFormKey: input.media.objectUrl,
     })
@@ -151,7 +151,7 @@ function createInitialState(): CaptureUiState {
       title: "",
       description: "",
       priority: DEFAULT_PRIORITY,
-      visibility: BUG_REPORT_VISIBILITY_OPTIONS.private,
+      visibility: BUG_REPORT_VISIBILITY_OPTIONS.public,
     },
     reviewFormKey: "",
   }
