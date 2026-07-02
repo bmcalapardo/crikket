@@ -4,3 +4,4 @@
 ### v0.1.1
  [BC] app(fix): Console logs not showing
  [BC] app(update): make bug reports default public
+ [BC] app(update): allow middleware to set bug reports to public

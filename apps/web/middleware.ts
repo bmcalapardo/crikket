@@ -11,6 +11,7 @@ export async function middleware(request: NextRequest) {
     "/forgot-password",
     "/verify-email",
     "/unauthorized",
+    "/s/",
   ]
   const isPublicRoute = publicRoutes.some((route) =>
     url.pathname.startsWith(route)
