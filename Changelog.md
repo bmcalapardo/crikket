@@ -6,3 +6,4 @@
 - [BC] app(update): make bug reports default public
 - [BC] app(update): allow middleware to set bug reports to public
 - [BC] app(fix): bug reports to be default public
+- [BC] app(update): let users join an existing organization or create one during sign up
