@@ -1,5 +1,5 @@
+import { db, organization } from "@crikket/db"
 import type { Metadata } from "next"
-
 import { SignUpForm } from "@/components/auth/sign-up-form"
 
 export const metadata: Metadata = {
@@ -7,6 +7,13 @@ export const metadata: Metadata = {
   description: "Create your Crikket account.",
 }
 
-export default function RegisterPage() {
-  return <SignUpForm />
+export default async function RegisterPage() {
+  const organizations = await db
+    .select({
+      id: organization.id,
+      name: organization.name,
+    })
+    .from(organization)
+
+  return <SignUpForm organizations={organizations} />
 }

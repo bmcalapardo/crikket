@@ -6,6 +6,13 @@ import { Loader } from "@crikket/ui/components/loader"
 import { Button } from "@crikket/ui/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@crikket/ui/components/ui/field"
 import { Input } from "@crikket/ui/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@crikket/ui/components/ui/select"
 import { useForm } from "@tanstack/react-form"
 import Link from "next/link"
 import { useRouter } from "nextjs-toploader/app"
@@ -14,8 +21,13 @@ import { toast } from "sonner"
 import { AuthShell } from "@/components/auth/auth-shell"
 import { AUTH_MIN_PASSWORD_LENGTH, getAuthErrorMessage } from "@/lib/auth"
 import { registerFormSchema } from "@/lib/schema/auth"
+import { orpc } from "@/utils/orpc"
 
-export function SignUpForm() {
+interface SignUpFormProps {
+  organizations: { id: string; name: string }[]
+}
+
+export function SignUpForm({ organizations }: SignUpFormProps) {
   const router = useRouter()
   const { data: session, isPending } = authClient.useSession()
 
@@ -25,6 +37,7 @@ export function SignUpForm() {
       email: "",
       password: "",
       confirmPassword: "",
+      orgId: "",
     },
     validators: {
       onChange: registerFormSchema,
@@ -47,6 +60,15 @@ export function SignUpForm() {
       if (result.error) {
         toast.error(getAuthErrorMessage(result.error))
         return
+      }
+
+      if (value.orgId) {
+        try {
+          await orpc.auth.assignOrganization.call({ orgId: value.orgId })
+        } catch (err) {
+          console.error("Failed to assign organization", err)
+          toast.error("Account created, but failed to join organization.")
+        }
       }
 
       if (result.data?.token) {
@@ -91,6 +113,37 @@ export function SignUpForm() {
           form.handleSubmit()
         }}
       >
+        <form.Field name="orgId">
+          {(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && field.state.meta.errors.length > 0
+            return (
+              <Field data-invalid={isInvalid}>
+                <FieldLabel htmlFor={field.name}>
+                  Department / Organization
+                </FieldLabel>
+                <Select
+                  onValueChange={(value) => field.handleChange(value ?? "")}
+                  value={field.state.value}
+                >
+                  <SelectTrigger aria-invalid={isInvalid} id={field.name}>
+                    <SelectValue placeholder="Select your organization" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organizations.map((org) => (
+                      <SelectItem key={org.id} value={org.id}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isInvalid ? (
+                  <FieldError errors={field.state.meta.errors} />
+                ) : null}
+              </Field>
+            )
+          }}
+        </form.Field>
         <form.Field name="name">
           {(field) => {
             const isInvalid =
@@ -98,7 +151,7 @@ export function SignUpForm() {
 
             return (
               <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+                <FieldLabel htmlFor={field.name}>Department</FieldLabel>
                 <Input
                   aria-invalid={isInvalid}
                   autoComplete="name"
