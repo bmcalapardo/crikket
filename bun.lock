@@ -106,6 +106,7 @@
         "@crikket-io/capture": "workspace:*",
         "@crikket/api": "workspace:*",
         "@crikket/auth": "workspace:*",
+        "@crikket/db": "workspace:*",
         "@crikket/env": "workspace:*",
         "@crikket/shared": "workspace:*",
         "@crikket/ui": "workspace:*",

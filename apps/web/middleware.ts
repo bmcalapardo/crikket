@@ -11,6 +11,7 @@ export async function middleware(request: NextRequest) {
     "/forgot-password",
     "/verify-email",
     "/unauthorized",
+    "/s/",
   ]
   const isPublicRoute = publicRoutes.some((route) =>
     url.pathname.startsWith(route)
@@ -58,5 +59,5 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Protect all routes except static assets, internal Next images, favicon, and the Auth API handlers itself
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth|rpc).*)"],
 }
