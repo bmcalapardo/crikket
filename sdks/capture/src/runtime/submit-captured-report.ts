@@ -19,6 +19,9 @@ export function submitCapturedReport(input: {
 }): Promise<CaptureSubmitResult> {
   const submitTransport = input.submitTransport ?? defaultSubmitTransport
 
+  const visibility =
+    input.draft.visibility ?? BUG_REPORT_VISIBILITY_OPTIONS.public
+
   return submitTransport({
     config: input.config,
     report: {
@@ -26,7 +29,7 @@ export function submitCapturedReport(input: {
       title: input.draft.title.trim(),
       description: input.draft.description.trim(),
       priority: input.draft.priority,
-      visibility: BUG_REPORT_VISIBILITY_OPTIONS.public,
+      visibility,
       pageUrl: getPageUrl(),
       pageTitle: getPageTitle(),
       durationMs: input.media.durationMs,
