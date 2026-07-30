@@ -3,6 +3,10 @@ import { reportNonFatalError } from "@crikket/shared/lib/errors"
 const DEBUGGER_CONTENT_BRIDGE_FILE = "debugger-content-bridge.js"
 const DEBUGGER_PAGE_RUNTIME_FILE = "debugger-page.js"
 
+// Debugger scripts are injected only when a capture session starts.
+// Avoid always-on content scripts: patching fetch/XHR on every tab breaks
+// third-party web app save flows (Docs, Sheets, Notion, etc.).
+
 export function createSessionId(): string {
   if (
     typeof crypto !== "undefined" &&
