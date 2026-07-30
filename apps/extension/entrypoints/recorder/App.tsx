@@ -5,6 +5,7 @@ import {
 import { readDebuggerSessionIdFromSearch } from "@crikket/capture-core/debugger/recorder-session"
 import type { BugReportDebuggerPayload } from "@crikket/capture-core/debugger/types"
 import { env } from "@crikket/env/extension"
+import type { BugReportVisibility } from "@crikket/shared/constants/bug-report"
 import type { Priority } from "@crikket/shared/constants/priorities"
 import { reportNonFatalError } from "@crikket/shared/lib/errors"
 import {
@@ -285,6 +286,7 @@ function App() {
     title: string
     description: string
     priority: Priority
+    visibility: BugReportVisibility
   }) => {
     const blob = captureType === "video" ? recordedBlob : screenshotBlob
     if (!blob || blob.size === 0) {
@@ -318,6 +320,7 @@ function App() {
         attachmentType: captureType,
         title: normalizeOptionalText(values.title, 200),
         priority: values.priority,
+        visibility: values.visibility,
         description: normalizeOptionalText(values.description, 3000),
         url: captureContextSubmissionData.normalizedUrl,
         metadata: {

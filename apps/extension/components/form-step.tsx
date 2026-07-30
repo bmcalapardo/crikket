@@ -1,4 +1,8 @@
 import {
+  BUG_REPORT_VISIBILITY_OPTIONS,
+  type BugReportVisibility,
+} from "@crikket/shared/constants/bug-report"
+import {
   PRIORITY_OPTIONS,
   type Priority,
 } from "@crikket/shared/constants/priorities"
@@ -22,6 +26,14 @@ const priorityValues = Object.values(PRIORITY_OPTIONS) as [
   Priority,
   ...Priority[],
 ]
+const visibilityValues = Object.values(BUG_REPORT_VISIBILITY_OPTIONS) as [
+  BugReportVisibility,
+  ...BugReportVisibility[],
+]
+const visibilityLabels: Record<BugReportVisibility, string> = {
+  [BUG_REPORT_VISIBILITY_OPTIONS.private]: "Private",
+  [BUG_REPORT_VISIBILITY_OPTIONS.public]: "Public",
+}
 
 const formSchema = z.object({
   title: z.string().max(200, "Title must be at most 200 characters."),
@@ -29,6 +41,7 @@ const formSchema = z.object({
     .string()
     .max(3000, "Description must be at most 3000 characters."),
   priority: z.enum(priorityValues),
+  visibility: z.enum(visibilityValues),
 })
 
 interface DebuggerSummary {
@@ -50,6 +63,7 @@ interface FormStepProps {
     title: string
     description: string
     priority: Priority
+    visibility: BugReportVisibility
   }) => void
   onCancel: () => void
 }
@@ -58,6 +72,7 @@ interface FormValues {
   title: string
   description: string
   priority: Priority
+  visibility: BugReportVisibility
 }
 
 export function FormStep({
@@ -76,6 +91,7 @@ export function FormStep({
     title: initialTitle,
     description: "",
     priority: PRIORITY_OPTIONS.none,
+    visibility: BUG_REPORT_VISIBILITY_OPTIONS.public,
   }
 
   const form = useForm({
@@ -88,6 +104,7 @@ export function FormStep({
         title: value.title,
         description: value.description,
         priority: value.priority,
+        visibility: value.visibility,
       })
     },
   })
@@ -198,7 +215,7 @@ export function FormStep({
             </div>
           </section>
 
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_190px]">
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_190px_190px]">
             <form.Field name="title">
               {(field) => {
                 const isInvalid =
@@ -256,6 +273,45 @@ export function FormStep({
                         {priorityValues.map((priority) => (
                           <SelectItem key={priority} value={priority}>
                             {formatPriorityLabel(priority)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {isInvalid && (
+                      <FieldError errors={field.state.meta.errors} />
+                    )}
+                  </Field>
+                )
+              }}
+            </form.Field>
+
+            <form.Field name="visibility">
+              {(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched &&
+                  field.state.meta.errors.length > 0
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor={field.name}>Visibility</FieldLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        if (value) {
+                          field.handleChange(value as BugReportVisibility)
+                        }
+                      }}
+                      value={field.state.value}
+                    >
+                      <SelectTrigger
+                        aria-invalid={isInvalid}
+                        className="w-full"
+                        id={field.name}
+                      >
+                        <SelectValue className="capitalize" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {visibilityValues.map((visibility) => (
+                          <SelectItem key={visibility} value={visibility}>
+                            {visibilityLabels[visibility]}
                           </SelectItem>
                         ))}
                       </SelectContent>
