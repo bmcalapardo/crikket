@@ -230,6 +230,7 @@ export function setupCaptureSdkTestHooks(): void {
 
   afterAll(() => {
     captureModule?.destroy()
+    restoreBrowserGlobals()
     mock.restore()
   })
 }
@@ -304,7 +305,33 @@ export async function waitFor(
   }
 }
 
+const browserGlobalKeys = [
+  "window",
+  "document",
+  "location",
+  "navigator",
+  "requestAnimationFrame",
+] as const
+
+let previousBrowserGlobals:
+  | Partial<Record<(typeof browserGlobalKeys)[number], PropertyDescriptor>>
+  | undefined
+let previousCreateObjectURL: typeof URL.createObjectURL | undefined
+let previousRevokeObjectURL: typeof URL.revokeObjectURL | undefined
+
 function installBrowserGlobals(): void {
+  if (!previousBrowserGlobals) {
+    previousBrowserGlobals = {}
+    for (const key of browserGlobalKeys) {
+      const descriptor = Object.getOwnPropertyDescriptor(globalThis, key)
+      if (descriptor) {
+        previousBrowserGlobals[key] = descriptor
+      }
+    }
+    previousCreateObjectURL = URL.createObjectURL
+    previousRevokeObjectURL = URL.revokeObjectURL
+  }
+
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
@@ -353,6 +380,33 @@ function installBrowserGlobals(): void {
   URL.revokeObjectURL = ((objectUrl: string) => {
     sdkTestState.objectUrlsRevoked.push(objectUrl)
   }) as typeof URL.revokeObjectURL
+}
+
+function restoreBrowserGlobals(): void {
+  if (!previousBrowserGlobals) {
+    return
+  }
+
+  for (const key of browserGlobalKeys) {
+    const descriptor = previousBrowserGlobals[key]
+    if (descriptor) {
+      Object.defineProperty(globalThis, key, descriptor)
+      continue
+    }
+
+    Reflect.deleteProperty(globalThis, key)
+  }
+
+  if (previousCreateObjectURL) {
+    URL.createObjectURL = previousCreateObjectURL
+  }
+  if (previousRevokeObjectURL) {
+    URL.revokeObjectURL = previousRevokeObjectURL
+  }
+
+  previousBrowserGlobals = undefined
+  previousCreateObjectURL = undefined
+  previousRevokeObjectURL = undefined
 }
 
 function buildReviewSnapshot(): ReviewSnapshot {
