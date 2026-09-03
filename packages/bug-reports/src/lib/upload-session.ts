@@ -29,11 +29,14 @@ import {
   processBugReportIngestionJob,
   queueBugReportIngestionJob,
 } from "./ingestion-jobs"
+import {
+  deviceInfoInputSchema,
+  metadataInputSchema,
+} from "./report-payload-schema"
 import { getStorageProvider } from "./storage"
 import {
   buildFallbackTitle,
   formatDurationMs,
-  metadataInputSchema,
   optionalText,
   visibilityValues,
 } from "./utils"
@@ -62,13 +65,7 @@ export const createBugReportUploadSessionInputSchema = z.object({
   attachmentType: z.enum(["video", "screenshot"]),
   visibility: z.enum(visibilityValues).default("public"),
   metadata: metadataInputSchema,
-  deviceInfo: z
-    .object({
-      browser: z.string().optional(),
-      os: z.string().optional(),
-      viewport: z.string().optional(),
-    })
-    .optional(),
+  deviceInfo: deviceInfoInputSchema,
   captureContentType: z.string().max(MAX_CONTENT_TYPE_LENGTH).optional(),
   hasDebuggerPayload: z.boolean().default(false),
   debuggerSummary: debuggerSummarySchema.optional(),
