@@ -12,6 +12,7 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test test",
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare"
   },
@@ -30,6 +31,7 @@
     "lucide-react": "catalog:"
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "^20.11.6",
     "@tailwindcss/postcss": "catalog:",
     "@types/chrome": "^0.1.36",
     "@types/react": "catalog:",

@@ -5,7 +5,7 @@ set -e
 
 bun run build
 
-bun test
+bun run test
 
 # Check if there are any staged files
 if [ -z "$(git diff --cached --name-only)" ]; then
