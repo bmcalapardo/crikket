@@ -21,6 +21,7 @@ import { buildAuthHandlerRequest } from "./build-auth-handler-request"
 import { handleCaptureFinalize } from "./capture/finalize-route"
 import { handleCaptureToken } from "./capture/token-route"
 import { handleCaptureUploadSession } from "./capture/upload-session-route"
+import { resolveCorsOrigin } from "./cors-origin"
 
 const app = new Hono()
 const allowedCorsOrigins = env.CORS_ORIGINS
@@ -102,19 +103,11 @@ app.use(logger())
 app.use(
   "/*",
   cors({
-    origin: (origin, c) => {
-      if (
-        (c.req.path === "/api/embed/capture-token" ||
-          c.req.path === "/api/embed/bug-report-upload-session" ||
-          c.req.path === "/api/embed/bug-report-finalize") &&
-        origin.trim().length > 0
-      ) {
-        return origin
-      }
-      if (allowedCorsOrigins.includes(origin)) return origin
-      if (origin.startsWith("chrome-extension://")) return origin
-      return fallbackCorsOrigin
-    },
+    origin: (origin, c) =>
+      resolveCorsOrigin(origin, c.req.path, {
+        allowedOrigins: allowedCorsOrigins,
+        fallbackOrigin: fallbackCorsOrigin,
+      }),
     allowMethods: ["GET", "POST", "OPTIONS"],
     allowHeaders: [
       "Authorization",

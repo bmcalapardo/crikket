@@ -7,6 +7,28 @@ import { Step, Steps } from "fumadocs-ui/components/steps"
 
 This guide installs the Crikket extension without the Chrome Web Store.
 
+## Install From a GitHub Release
+
+Tester builds are published as GitHub Releases tagged `extension-vX.Y.Z`, `extension-vX.Y.Z-alpha.N` or `extension-vX.Y.Z-beta.N`. Each release attaches:
+
+- `crikket-extension-<version>-chromium.zip`: unzip it, open `chrome://extensions`, turn on `Developer mode`, click `Load unpacked` and select the unzipped folder.
+- `crikket-extension-<version>-firefox.zip`: the Firefox build.
+
+The release notes state the version and channel. To build from source instead, continue below.
+
+### Automatic alpha builds
+
+Every merge to `master` that changes the extension (or a workspace package it bundles) publishes an alpha pre-release automatically, tagged `extension-v<package version>-alpha.<build number>`. The latest alpha is always at the top of the Releases page; no one needs to tag anything.
+
+### Cutting a release (maintainers)
+
+For a beta or stable release:
+
+1. Set `version` in `apps/extension/package.json` (extension versions are not managed by changesets).
+2. Push a matching tag, for example `extension-v0.1.2-beta.1` or `extension-v0.1.2`. The tag must agree with `package.json` or the workflow fails.
+
+Both automatic and tagged releases need the repository variables `EXTENSION_APP_URL` and `EXTENSION_SERVER_URL`; the build fails without them.
+
 ## Prerequisites
 
 - Chrome or any Chromium-based browser

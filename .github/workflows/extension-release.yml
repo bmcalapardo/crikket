@@ -1,0 +1,141 @@
+name: Release Extension
+
+# Tag prefix is fixed at `extension-v*`. A bare `v*` already triggers
+# docker-publish.yml, and the two patterns do not overlap.
+#
+# A merge to master that touches the extension (or a workspace package it
+# bundles) publishes an alpha automatically. `paths` is not evaluated for
+# tag pushes, so tags always run. The tag the release creates is pushed
+# with GITHUB_TOKEN, which does not trigger workflows, so there is no loop.
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "extension-v*"
+    paths:
+      - "apps/extension/**"
+      - "packages/capture-core/**"
+      - "packages/env/**"
+      - "packages/shared/**"
+      - "packages/ui/**"
+      - ".github/workflows/extension-release.yml"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, e.g. extension-v0.1.2-alpha.1"
+        required: true
+        type: string
+      publish:
+        description: "Publish a GitHub Release (otherwise build only)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: extension-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and package extension
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || (github.ref_type == 'tag' && github.ref_name || '') }}
+      ALPHA_BUILD_NUMBER: ${{ github.event_name == 'push' && github.ref_type == 'branch' && github.run_number || '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Plan release
+        id: plan
+        run: bun apps/extension/scripts/plan-release.ts
+
+      - name: Configure extension environment
+        working-directory: apps/extension
+        env:
+          APP_URL: ${{ vars.EXTENSION_APP_URL }}
+          SERVER_URL: ${{ vars.EXTENSION_SERVER_URL }}
+        run: |
+          missing=0
+          if [ -z "$APP_URL" ]; then
+            echo "::error::Repository variable EXTENSION_APP_URL is not set. Release builds must not fall back to localhost."
+            missing=1
+          fi
+          if [ -z "$SERVER_URL" ]; then
+            echo "::error::Repository variable EXTENSION_SERVER_URL is not set. Release builds must not fall back to localhost."
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          printf 'VITE_APP_URL=%s\nVITE_SERVER_URL=%s\n' "$APP_URL" "$SERVER_URL" > .env
+
+      - name: Type check
+        run: bun run check-types
+
+      - name: Run tests
+        run: bun run test
+
+      - name: Package Chromium
+        working-directory: apps/extension
+        run: bun run zip
+
+      - name: Package Firefox
+        working-directory: apps/extension
+        run: bun run zip:firefox
+
+      - name: Name artifacts
+        run: |
+          mkdir -p release
+          cp "apps/extension/.output/extension-$(jq -r .version apps/extension/package.json)-chrome.zip" "release/${{ steps.plan.outputs.chromium_artifact }}"
+          cp "apps/extension/.output/extension-$(jq -r .version apps/extension/package.json)-firefox.zip" "release/${{ steps.plan.outputs.firefox_artifact }}"
+          cp "${{ steps.plan.outputs.notes_path }}" release/release-notes.md
+          ls -l release
+
+      - name: Upload release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-release
+          path: release/
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release files
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-release
+          path: release
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        run: |
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$TAG" release/*.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Extension ${TAG#extension-v}" \
+            --notes-file release/release-notes.md \
+            "${flags[@]}"
