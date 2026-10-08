@@ -6,9 +6,22 @@ on:
       - master
     tags:
       - "v*"
+  # On PRs the images are only built, never pushed, so skip PRs that can't
+  # change them. Not a required check, so path filtering can't block merges.
   pull_request:
     branches:
       - master
+    paths:
+      - "apps/web/**"
+      - "apps/server/**"
+      - "packages/**"
+      - "sdks/**"
+      - "package.json"
+      - "bun.lock"
+      - "turbo.json"
+      - "tsconfig.json"
+      - "biome.jsonc"
+      - ".github/workflows/docker-publish.yml"
   workflow_dispatch:
 
 permissions:

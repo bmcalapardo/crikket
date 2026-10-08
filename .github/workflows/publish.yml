@@ -4,9 +4,21 @@ on:
   push:
     branches:
       - master
+  # On PRs this is only a publish dry run of the capture SDK, so skip PRs that
+  # can't change the package. Not a required check, so it can't block merges.
   pull_request:
     branches:
       - master
+    paths:
+      - "sdks/capture/**"
+      - "packages/capture-core/**"
+      - "packages/shared/**"
+      - "packages/config/**"
+      - ".changeset/**"
+      - "package.json"
+      - "bun.lock"
+      - "turbo.json"
+      - ".github/workflows/publish.yml"
   workflow_dispatch:
 
 permissions:
