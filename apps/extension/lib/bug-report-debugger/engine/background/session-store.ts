@@ -20,6 +20,11 @@ import {
   isInjectablePageUrl,
 } from "./injection"
 
+// chrome.storage.local holds 10 MB without unlimitedStorage. Debugger state
+// gets under half of it so the screenshot handoff (a multi-MB PNG data URL)
+// still fits alongside it.
+const MAX_PERSISTED_SESSIONS_BYTES = 4 * 1024 * 1024
+
 interface StartSessionPayload {
   captureTabId: number
   captureType: "video" | "screenshot"
@@ -72,6 +77,7 @@ export function createDebuggerSessionStore(): DebuggerSessionStore {
   }
 
   const persistState = async () => {
+    fitSessionsToStorageBudget()
     const sessionsSnapshot = Array.from(sessionsById.values())
 
     await chrome.storage.local.set({
@@ -89,14 +95,25 @@ export function createDebuggerSessionStore(): DebuggerSessionStore {
       return
     }
 
+    // Tab IDs don't survive a browser restart, so sessions for tabs that are
+    // gone would never see onRemoved and would sit in storage forever.
+    const openTabs = await chrome.tabs.query({})
+    const openTabIds = new Set(openTabs.map((tab) => tab.id))
+    let didPrune = false
+
     for (const candidate of storedSessions) {
       const session = normalizeStoredSession(candidate)
-      if (!session) {
+      if (!(session && openTabIds.has(session.captureTabId))) {
+        didPrune = true
         continue
       }
 
       sessionsById.set(session.sessionId, session)
       tabToSession.set(session.captureTabId, session.sessionId)
+    }
+
+    if (didPrune || fitSessionsToStorageBudget()) {
+      schedulePersist()
     }
   }
 
@@ -134,6 +151,53 @@ export function createDebuggerSessionStore(): DebuggerSessionStore {
     if (activeSessionId === sessionId) {
       tabToSession.delete(session.captureTabId)
     }
+  }
+
+  const trimOldestEvents = (
+    session: StoredDebuggerSession,
+    excessBytes: number
+  ): void => {
+    let removedBytes = 0
+    let dropCount = 0
+    while (dropCount < session.events.length && removedBytes < excessBytes) {
+      // +1 for the separating comma in the serialised array.
+      removedBytes += JSON.stringify(session.events[dropCount]).length + 1
+      dropCount += 1
+    }
+
+    session.events.splice(0, dropCount)
+  }
+
+  // Event caps are counts, not bytes, and a capture abandoned without
+  // submitting keeps its session until the tab closes, so stored state can
+  // outgrow the quota. Returns whether anything was dropped.
+  const fitSessionsToStorageBudget = (): boolean => {
+    const sessions = Array.from(sessionsById.values()).sort(
+      (a, b) => a.startedAt - b.startedAt
+    )
+    const sizes = sessions.map((session) => JSON.stringify(session).length)
+    let totalBytes = sizes.reduce((sum, size) => sum + size, 0)
+    if (totalBytes <= MAX_PERSISTED_SESSIONS_BYTES) {
+      return false
+    }
+
+    // The oldest captures are the likeliest to be abandoned, so they go first;
+    // the newest is kept and trimmed instead.
+    for (
+      let index = 0;
+      index < sessions.length - 1 && totalBytes > MAX_PERSISTED_SESSIONS_BYTES;
+      index += 1
+    ) {
+      removeSession(sessions[index].sessionId)
+      totalBytes -= sizes[index]
+    }
+
+    const newestSession = sessions.at(-1)
+    if (newestSession && totalBytes > MAX_PERSISTED_SESSIONS_BYTES) {
+      trimOldestEvents(newestSession, totalBytes - MAX_PERSISTED_SESSIONS_BYTES)
+    }
+
+    return true
   }
 
   const appendEventsToSession = (
@@ -233,6 +297,13 @@ export function createDebuggerSessionStore(): DebuggerSessionStore {
       recordingStartedAt:
         payload.captureType === "screenshot" ? startedAt : null,
       events: instantReplayEvents,
+    }
+
+    // A tab holds one session at a time; replacing the mapping without
+    // removing the old session orphans it in storage.
+    const previousSessionId = tabToSession.get(payload.captureTabId)
+    if (previousSessionId) {
+      removeSession(previousSessionId)
     }
 
     sessionsById.set(sessionId, session)
