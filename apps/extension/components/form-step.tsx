@@ -66,6 +66,7 @@ interface FormStepProps {
     visibility: BugReportVisibility
   }) => void
   onCancel: () => void
+  onEditScreenshot?: () => void
 }
 
 interface FormValues {
@@ -86,6 +87,7 @@ export function FormStep({
   debuggerSummary,
   onSubmit,
   onCancel,
+  onEditScreenshot,
 }: FormStepProps) {
   const defaultValues: FormValues = {
     title: initialTitle,
@@ -384,6 +386,17 @@ export function FormStep({
           >
             Cancel
           </Button>
+          {captureType === "screenshot" && onEditScreenshot ? (
+            <Button
+              className="flex-1"
+              disabled={isBusy}
+              onClick={onEditScreenshot}
+              type="button"
+              variant="outline"
+            >
+              Edit Screenshot
+            </Button>
+          ) : null}
           <Button className="flex-1" disabled={isBusy} type="submit">
             {isBusy ? "Submitting..." : "Submit Bug Report"}
           </Button>

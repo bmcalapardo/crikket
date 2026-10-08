@@ -17,6 +17,7 @@ import {
 } from "@crikket/ui/components/ui/card"
 import { AlertCircle } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { CropStep } from "@/components/crop-step"
 import { FormStep } from "@/components/form-step"
 import { RecordingStep } from "@/components/recording-step"
 import { SuccessStep } from "@/components/success-step"
@@ -32,6 +33,7 @@ import {
   markDebuggerRecordingStarted,
 } from "@/lib/bug-report-debugger/client"
 import { submitBugReportWithUploads } from "@/lib/bug-report-upload"
+import type { RecorderState } from "@/lib/recorder-state"
 import {
   buildCaptureContextSubmissionData,
   type DebuggerCaptureSummary,
@@ -42,9 +44,14 @@ import {
   isUnauthorizedSubmissionError,
   normalizeOptionalText,
 } from "@/lib/recorder-submit"
+import {
+  applyScreenshotEdit,
+  resetScreenshotEdits,
+  type ScreenshotEdits,
+  screenshotToSubmit,
+  startScreenshotEdits,
+} from "@/lib/screenshot-edits"
 import { formatDuration, getDeviceInfo } from "@/lib/utils"
-
-type State = "idle" | "recording" | "stopped" | "submitting" | "success"
 
 interface DebuggerSubmissionInput {
   sessionId: string | null
@@ -53,9 +60,139 @@ interface DebuggerSubmissionInput {
   warnings: string[]
 }
 
+const STATE_DESCRIPTIONS: Record<RecorderState, string> = {
+  idle: "Waiting for capture",
+  recording: "Recording in progress...",
+  editing: "Crop the screenshot",
+  stopped: "Review and submit",
+  submitting: "Review and submit",
+  success: "Report submitted!",
+}
+
+interface RecorderStepContentProps {
+  error: string | null
+  state: RecorderState
+  duration: number
+  stopRecordingShortcut: string | null
+  onStopRecording: () => Promise<void>
+  screenshotEdits: ScreenshotEdits | null
+  onCropApply: (blob: Blob) => void
+  onCropReset: () => void
+  onCropSkip: () => void
+  onEditScreenshot: () => void
+  captureType: CaptureType
+  debuggerSummary: DebuggerCaptureSummary
+  suggestedTitle: string
+  onCancel: () => void
+  onSubmit: (values: {
+    title: string
+    description: string
+    priority: Priority
+    visibility: BugReportVisibility
+  }) => void
+  preSubmitWarnings: string[]
+  previewUrl: string | null
+  submitError: string | null
+  videoDurationMs: number | null
+  resultUrl: string
+  submissionWarnings: string[]
+}
+
+function RecorderStepContent({
+  error,
+  state,
+  duration,
+  stopRecordingShortcut,
+  onStopRecording,
+  screenshotEdits,
+  onCropApply,
+  onCropReset,
+  onCropSkip,
+  onEditScreenshot,
+  captureType,
+  debuggerSummary,
+  suggestedTitle,
+  onCancel,
+  onSubmit,
+  preSubmitWarnings,
+  previewUrl,
+  submitError,
+  videoDurationMs,
+  resultUrl,
+  submissionWarnings,
+}: RecorderStepContentProps) {
+  return (
+    <>
+      {error ? (
+        <div className="flex items-center gap-2 rounded-md bg-destructive/15 p-4 text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <span className="font-medium text-sm">{error}</span>
+        </div>
+      ) : null}
+
+      {state === "idle" ? (
+        <p className="text-center text-muted-foreground">
+          No active capture. Start from the extension popup.
+        </p>
+      ) : null}
+
+      {state === "recording" ? (
+        <RecordingStep
+          duration={duration}
+          onStopRecording={onStopRecording}
+          stopRecordingShortcut={stopRecordingShortcut}
+        />
+      ) : null}
+
+      {state === "editing" && screenshotEdits ? (
+        <CropStep
+          hasAppliedEdit={screenshotEdits.edited !== null}
+          imageBlob={screenshotEdits.capture}
+          onApply={onCropApply}
+          onResetEdit={onCropReset}
+          onSkip={onCropSkip}
+        />
+      ) : null}
+
+      {/* Kept mounted (hidden) while editing so typed form fields survive a
+          trip back to the edit stage. */}
+      {state === "stopped" ||
+      state === "submitting" ||
+      (state === "editing" && screenshotEdits) ? (
+        <div hidden={state === "editing"}>
+          <FormStep
+            captureType={captureType}
+            debuggerSummary={debuggerSummary}
+            initialTitle={suggestedTitle}
+            isSubmitting={state === "submitting"}
+            onCancel={onCancel}
+            onEditScreenshot={onEditScreenshot}
+            onSubmit={onSubmit}
+            preSubmitWarnings={preSubmitWarnings}
+            previewUrl={previewUrl}
+            submitError={submitError}
+            videoDurationMs={videoDurationMs}
+          />
+        </div>
+      ) : null}
+
+      {state === "success" ? (
+        <SuccessStep
+          onClose={() => window.close()}
+          onCopyLink={() => navigator.clipboard.writeText(resultUrl)}
+          onOpenRecording={() => window.open(resultUrl, "_blank")}
+          warnings={submissionWarnings}
+        />
+      ) : null}
+    </>
+  )
+}
+
 function App() {
   const shortcuts = useCommandShortcuts()
-  const [state, setState] = useState<State>("idle")
+  const [state, setState] = useState<RecorderState>("idle")
+  const [screenshotEdits, setScreenshotEdits] =
+    useState<ScreenshotEdits | null>(null)
   const [captureType, setCaptureType] = useState<CaptureType>("video")
   const [startTime, setStartTime] = useState<number | null>(null)
   const [recordedDurationMs, setRecordedDurationMs] = useState<number | null>(
@@ -77,12 +214,9 @@ function App() {
   const {
     startRecording: startCapture,
     stopRecording: stopCapture,
-    takeScreenshot: captureScreenshot,
     recordedBlob,
-    screenshotBlob,
     error: captureError,
     reset: resetCapture,
-    setScreenshotBlob,
   } = useScreenCapture()
 
   const duration = useTimer(startTime, state === "recording")
@@ -197,19 +331,6 @@ function App() {
     }
   }, [debuggerSessionId, startCapture])
 
-  const handleStartCapture = useCallback(async () => {
-    if (captureType === "screenshot") {
-      const blob = await captureScreenshot()
-      if (blob) {
-        setRecordedDurationMs(null)
-        setState("stopped")
-      }
-      return
-    }
-
-    await startVideoCapture()
-  }, [captureScreenshot, captureType, startVideoCapture])
-
   useEffect(() => {
     if (state === "recording" && recordedBlob) {
       if (startTime) {
@@ -259,16 +380,36 @@ function App() {
   useRecorderInit({
     onCaptureTypeChange: setCaptureType,
     onScreenshotLoaded: (blob) => {
-      setScreenshotBlob(blob)
+      setScreenshotEdits(startScreenshotEdits(blob))
       setRecordedDurationMs(null)
-      setState("stopped")
+      setState("editing")
     },
-    onStartRecording: handleStartCapture,
+    onStartRecording: startVideoCapture,
     onError: (err) => setSubmitError(err),
   })
 
+  const handleCropApply = useCallback((blob: Blob) => {
+    setScreenshotEdits((edits) =>
+      edits ? applyScreenshotEdit(edits, blob) : edits
+    )
+    setState("stopped")
+  }, [])
+
+  const handleCropReset = useCallback(() => {
+    setScreenshotEdits((edits) => (edits ? resetScreenshotEdits(edits) : edits))
+  }, [])
+
+  const handleCropSkip = useCallback(() => {
+    setState("stopped")
+  }, [])
+
+  const handleEditScreenshot = useCallback(() => {
+    setState("editing")
+  }, [])
+
   const handleReset = () => {
     resetCapture()
+    setScreenshotEdits(null)
     setState("idle")
     setResultUrl("")
     setSubmitError(null)
@@ -282,13 +423,18 @@ function App() {
     })
   }
 
+  const screenshotBlob = screenshotEdits
+    ? screenshotToSubmit(screenshotEdits)
+    : null
+  const activeBlob = captureType === "video" ? recordedBlob : screenshotBlob
+
   const handleSubmit = async (values: {
     title: string
     description: string
     priority: Priority
     visibility: BugReportVisibility
   }) => {
-    const blob = captureType === "video" ? recordedBlob : screenshotBlob
+    const blob = activeBlob
     if (!blob || blob.size === 0) {
       setSubmitError("Capture data is missing. Please capture again.")
       setState("stopped")
@@ -359,7 +505,6 @@ function App() {
     }
   }
 
-  const activeBlob = captureType === "video" ? recordedBlob : screenshotBlob
   const suggestedTitle =
     captureContext.title?.trim() ||
     (captureType === "video" ? "Video bug report" : "Screenshot bug report")
@@ -387,61 +532,37 @@ function App() {
             Crikket Bug Report
           </CardTitle>
           <CardDescription className="text-sm">
-            {state === "idle" && "Waiting for capture"}
-            {state === "recording" && "Recording in progress..."}
-            {state === "stopped" && "Review and submit"}
-            {state === "success" && "Report submitted!"}
+            {STATE_DESCRIPTIONS[state]}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 px-6 py-6">
-          {error ? (
-            <div className="flex items-center gap-2 rounded-md bg-destructive/15 p-4 text-destructive">
-              <AlertCircle className="h-4 w-4" />
-              <span className="font-medium text-sm">{error}</span>
-            </div>
-          ) : null}
-
-          {state === "idle" ? (
-            <p className="text-center text-muted-foreground">
-              No active capture. Start from the extension popup.
-            </p>
-          ) : null}
-
-          {state === "recording" ? (
-            <RecordingStep
-              duration={duration}
-              onStopRecording={handleStopRecording}
-              stopRecordingShortcut={shortcuts.stopRecording}
-            />
-          ) : null}
-
-          {state === "stopped" || state === "submitting" ? (
-            <FormStep
-              captureType={captureType}
-              debuggerSummary={debuggerSummary}
-              initialTitle={suggestedTitle}
-              isSubmitting={state === "submitting"}
-              onCancel={handleReset}
-              onSubmit={handleSubmit}
-              preSubmitWarnings={preSubmitWarnings}
-              previewUrl={previewUrl}
-              submitError={submitError}
-              videoDurationMs={
-                captureType === "video"
-                  ? (recordedDurationMs ?? (duration > 0 ? duration : null))
-                  : null
-              }
-            />
-          ) : null}
-
-          {state === "success" ? (
-            <SuccessStep
-              onClose={() => window.close()}
-              onCopyLink={() => navigator.clipboard.writeText(resultUrl)}
-              onOpenRecording={() => window.open(resultUrl, "_blank")}
-              warnings={submissionWarnings}
-            />
-          ) : null}
+          <RecorderStepContent
+            captureType={captureType}
+            debuggerSummary={debuggerSummary}
+            duration={duration}
+            error={error}
+            onCancel={handleReset}
+            onCropApply={handleCropApply}
+            onCropReset={handleCropReset}
+            onCropSkip={handleCropSkip}
+            onEditScreenshot={handleEditScreenshot}
+            onStopRecording={handleStopRecording}
+            onSubmit={handleSubmit}
+            preSubmitWarnings={preSubmitWarnings}
+            previewUrl={previewUrl}
+            resultUrl={resultUrl}
+            screenshotEdits={screenshotEdits}
+            state={state}
+            stopRecordingShortcut={shortcuts.stopRecording}
+            submissionWarnings={submissionWarnings}
+            submitError={submitError}
+            suggestedTitle={suggestedTitle}
+            videoDurationMs={
+              captureType === "video"
+                ? (recordedDurationMs ?? (duration > 0 ? duration : null))
+                : null
+            }
+          />
         </CardContent>
       </Card>
     </div>
