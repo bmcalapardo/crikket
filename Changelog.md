@@ -7,3 +7,19 @@
 - [BC] app(update): allow middleware to set bug reports to public
 - [BC] app(fix): bug reports to be default public
 - [BC] app(update): let users join an existing organization or create one during sign up
+
+### v0.1.2
+- [BC] app(update): add visiblity field to report generation
+- [BC] app(update): upgrade extension to default public and surface visibility
+- [BC] app(update): removed always on content scripts
+- [BC] app(update): adding grilling session + prd for upgrades
+- [BC] app(update): stricter payload schemas
+- [BC] app(update): add turbo test
+
+### v0.1.3
+- [BC] app(fix): keep debugger sessions under the chrome.storage quota
+- [BC] feat(extension): add screenshot crop stage before submit
+- [BC] ci: gate pull requests on typecheck, extension build, and tests
+- [BC] app(update): add mark pocock skills to repo
+- [BC] ci(extension): ship tester-ready extension builds from an extension-v* tag
+- [BC] docs(repo): document changelog and versioning, and check the changelog in CI

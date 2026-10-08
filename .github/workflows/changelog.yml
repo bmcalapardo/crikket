@@ -1,0 +1,49 @@
+name: Changelog
+
+# Enforces "Changelog and Versioning" in CONTRIBUTING.md. Runs on label
+# changes too, so adding or removing `skip-changelog` re-evaluates the PR.
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: changelog-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changelog:
+    name: Changelog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The changesets "Version Packages" PR only touches package changelogs.
+      - name: Check changelog entry
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-changelog') && !startsWith(github.head_ref, 'changeset-release/') }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if git diff --name-only "origin/$BASE_REF...HEAD" | grep -qx 'Changelog.md'; then
+            echo "Changelog.md is updated."
+          else
+            echo "::error file=Changelog.md::Add a '- [Initials] <commit subject>' line under the last version heading in Changelog.md (CONTRIBUTING.md, Changelog and Versioning), or label the PR skip-changelog."
+            exit 1
+          fi
+
+      - name: Check version matches changelog
+        run: |
+          heading=$(grep -E '^### v[0-9]+\.[0-9]+\.[0-9]+$' Changelog.md | tail -n 1 | sed -E 's/^### v//')
+          version=$(jq -r .version apps/extension/package.json)
+          if [ "$heading" != "$version" ]; then
+            echo "::error file=apps/extension/package.json::Extension version $version does not match the last Changelog.md heading v$heading. Keep them in sync (CONTRIBUTING.md, Changelog and Versioning)."
+            exit 1
+          fi
+          echo "Extension version $version matches the last Changelog.md heading."

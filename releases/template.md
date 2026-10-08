@@ -1,2 +1,2 @@
-### vX.X.X
-[Initials] (app)update: changelog
+### vX.Y.Z
+- [Initials] scope(type): subject
