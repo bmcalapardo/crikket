@@ -7,6 +7,7 @@
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "noEmit": true,
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
     }

@@ -7,14 +7,20 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**", ".next/**", ".output/**"]
     },
+    "build:firefox": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**", ".output/**"]
+    },
     "lint": {
       "dependsOn": ["^lint"]
     },
     "test": {
+      "dependsOn": ["^build"],
       "outputs": []
     },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "dependsOn": ["^check-types", "^build"]
     },
     "dev": {
       "cache": false,

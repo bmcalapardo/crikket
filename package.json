@@ -80,6 +80,8 @@
     "build": "turbo run build",
     "check-types": "turbo run check-types",
     "test": "turbo run test",
+    "build:extension": "turbo run build --filter=extension",
+    "build:extension:firefox": "turbo run build:firefox --filter=extension",
     "dev:native": "turbo run dev --filter=native",
     "dev:web": "turbo run dev --filter=web",
     "dev:capture": "turbo run dev --filter=@crikket-io/capture",
