@@ -18,11 +18,16 @@ export interface ReleasePlan {
 const TAG_PATTERN = /^extension-v(\d+\.\d+\.\d+)(?:-(alpha|beta)\.(\d+))?$/
 const BUILD_NUMBER_PATTERN = /^[1-9]\d*$/
 
-// A pushed or dispatched tag wins. A merge to master has no tag, so it
-// becomes an alpha of the current package version, numbered by the
-// workflow run so every merge gets a unique, increasing tag.
+const PRERELEASE_BRANCH_PATTERN = /^prerelease\/v(\d+\.\d+\.\d+)$/
+
+// A pushed or dispatched tag wins. Otherwise the branch picks the channel:
+// a push to prerelease/vX.Y.Z is an alpha, a push to master (the merged
+// block) is a beta. Both are numbered by the workflow run, which is unique
+// and increasing across the whole workflow, so an alpha and a beta can never
+// share a tag. Semver orders X.Y.Z-alpha.N < X.Y.Z-beta.N < X.Y.Z whatever N is.
 export function resolveReleaseTag(input: {
-  alphaBuildNumber: string
+  branch: string
+  buildNumber: string
   packageVersion: string
   releaseTag: string
 }): string {
@@ -30,19 +35,34 @@ export function resolveReleaseTag(input: {
     return input.releaseTag
   }
 
-  if (!input.alphaBuildNumber) {
+  if (!input.buildNumber) {
     throw new Error(
-      "No release tag given. Push an extension-v* tag, dispatch with a tag, or merge to master for an automatic alpha."
+      "No release tag given. Push an extension-v* tag, dispatch with a tag, push to prerelease/vX.Y.Z for an automatic alpha, or merge to master for an automatic beta."
     )
   }
 
-  if (!BUILD_NUMBER_PATTERN.test(input.alphaBuildNumber)) {
+  if (!BUILD_NUMBER_PATTERN.test(input.buildNumber)) {
     throw new Error(
-      `Invalid alpha build number "${input.alphaBuildNumber}". Expected a positive integer.`
+      `Invalid build number "${input.buildNumber}". Expected a positive integer.`
     )
   }
 
-  return `extension-v${input.packageVersion}-alpha.${input.alphaBuildNumber}`
+  if (input.branch === "master") {
+    return `extension-v${input.packageVersion}-beta.${input.buildNumber}`
+  }
+
+  const branchMatch = PRERELEASE_BRANCH_PATTERN.exec(input.branch)
+  if (!branchMatch) {
+    throw new Error(
+      `Branch "${input.branch}" does not publish releases. Only prerelease/vX.Y.Z (alpha) and master (beta) do.`
+    )
+  }
+  if (branchMatch[1] !== input.packageVersion) {
+    throw new Error(
+      `Branch "${input.branch}" does not match apps/extension/package.json version ${input.packageVersion}. Bump the package version or fix the branch name.`
+    )
+  }
+  return `extension-v${input.packageVersion}-alpha.${input.buildNumber}`
 }
 
 export function parseReleaseTag(tag: string): {
@@ -109,7 +129,8 @@ function main() {
     readFileSync(resolve(import.meta.dir, "../package.json"), "utf8")
   ) as { version: string }
   const tag = resolveReleaseTag({
-    alphaBuildNumber: process.env.ALPHA_BUILD_NUMBER ?? "",
+    branch: process.env.RELEASE_BRANCH ?? "",
+    buildNumber: process.env.BUILD_NUMBER ?? "",
     packageVersion: packageJson.version,
     releaseTag: process.env.RELEASE_TAG ?? "",
   })

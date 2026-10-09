@@ -8,8 +8,10 @@ import {
 
 const INVALID_TAG = /Invalid release tag/
 const MISMATCH = /does not match apps\/extension\/package\.json/
-const INVALID_BUILD_NUMBER = /Invalid alpha build number/
+const INVALID_BUILD_NUMBER = /Invalid build number/
 const NO_TAG = /No release tag/
+const BRANCH_MISMATCH = MISMATCH
+const NO_RELEASE_BRANCH = /does not publish releases/
 
 describe("parseReleaseTag", () => {
   test("derives the stable channel from extension-vX.Y.Z", () => {
@@ -100,25 +102,80 @@ describe("planRelease", () => {
 })
 
 describe("resolveReleaseTag", () => {
-  test("a merge to master gets an alpha tag from the package version and build number", () => {
+  const base = {
+    branch: "",
+    buildNumber: "",
+    packageVersion: "0.2.0",
+    releaseTag: "",
+  }
+
+  test("a push to prerelease/vX.Y.Z becomes an alpha", () => {
     const tag = resolveReleaseTag({
-      alphaBuildNumber: "57",
-      packageVersion: "0.1.2",
-      releaseTag: "",
+      ...base,
+      branch: "prerelease/v0.2.0",
+      buildNumber: "57",
     })
 
-    expect(tag).toBe("extension-v0.1.2-alpha.57")
-    expect(planRelease({ packageVersion: "0.1.2", tag }).channel).toBe("alpha")
+    expect(tag).toBe("extension-v0.2.0-alpha.57")
+    expect(planRelease({ packageVersion: "0.2.0", tag }).channel).toBe("alpha")
   })
 
-  test("a pushed or dispatched tag is used as-is", () => {
+  test("a push to master becomes a beta", () => {
+    const tag = resolveReleaseTag({
+      ...base,
+      branch: "master",
+      buildNumber: "58",
+    })
+
+    expect(tag).toBe("extension-v0.2.0-beta.58")
+    expect(planRelease({ packageVersion: "0.2.0", tag }).channel).toBe("beta")
+  })
+
+  test("alpha and beta never share a tag, even for the same number", () => {
+    const alpha = resolveReleaseTag({
+      ...base,
+      branch: "prerelease/v0.2.0",
+      buildNumber: "60",
+    })
+    const beta = resolveReleaseTag({
+      ...base,
+      branch: "master",
+      buildNumber: "60",
+    })
+
+    expect(alpha).not.toBe(beta)
+  })
+
+  test("fails when the prerelease branch version differs from package.json", () => {
+    expect(() =>
+      resolveReleaseTag({
+        ...base,
+        branch: "prerelease/v0.3.0",
+        buildNumber: "5",
+      })
+    ).toThrow(BRANCH_MISMATCH)
+  })
+
+  test.each([
+    "feature/x",
+    "prerelease/v0.2",
+    "prerelease/v0.2.0-rc",
+    "prerelease/0.2.0",
+    "",
+  ])("branch %j does not publish releases", (branch) => {
+    expect(() =>
+      resolveReleaseTag({ ...base, branch, buildNumber: "5" })
+    ).toThrow(NO_RELEASE_BRANCH)
+  })
+
+  test("a pushed or dispatched tag is used as-is, whatever the branch", () => {
     expect(
       resolveReleaseTag({
-        alphaBuildNumber: "",
-        packageVersion: "0.1.2",
-        releaseTag: "extension-v0.1.2-beta.1",
+        ...base,
+        branch: "master",
+        releaseTag: "extension-v0.2.0-beta.1",
       })
-    ).toBe("extension-v0.1.2-beta.1")
+    ).toBe("extension-v0.2.0-beta.1")
   })
 
   test.each([
@@ -127,23 +184,13 @@ describe("resolveReleaseTag", () => {
     "1.5",
     "abc",
     " 7",
-  ])("rejects alpha build number %j", (alphaBuildNumber) => {
+  ])("rejects build number %j", (buildNumber) => {
     expect(() =>
-      resolveReleaseTag({
-        alphaBuildNumber,
-        packageVersion: "0.1.2",
-        releaseTag: "",
-      })
+      resolveReleaseTag({ ...base, branch: "master", buildNumber })
     ).toThrow(INVALID_BUILD_NUMBER)
   })
 
-  test("fails when neither a tag nor an alpha build number is given", () => {
-    expect(() =>
-      resolveReleaseTag({
-        alphaBuildNumber: "",
-        packageVersion: "0.1.2",
-        releaseTag: "",
-      })
-    ).toThrow(NO_TAG)
+  test("fails when neither a tag nor a build number is given", () => {
+    expect(() => resolveReleaseTag(base)).toThrow(NO_TAG)
   })
 })

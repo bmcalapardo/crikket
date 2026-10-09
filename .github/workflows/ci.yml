@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - master
+      - "prerelease/**"
   pull_request:
     branches:
       - master
+      - "prerelease/**"
   workflow_dispatch:
 
 permissions:
