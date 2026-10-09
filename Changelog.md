@@ -25,3 +25,4 @@
 - [BC] docs(repo): document changelog and versioning, and check the changelog in CI
 
 ### v0.2.0
+- [BC] app(fix): harden redaction of secrets in captured debugger data

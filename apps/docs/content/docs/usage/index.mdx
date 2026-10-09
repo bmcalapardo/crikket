@@ -25,3 +25,15 @@ Use the Capture SDK to add the Crikket bug-report widget directly to your site.
 2. Add the exact allowed origins where the widget can run.
 3. Initialize `@crikket-io/capture` in your site.
 4. Users launch the widget, capture a screenshot or screen recording, and submit the report from your app.
+
+## Captured Data and Redaction
+
+Reports from the widget and the browser extension can include console logs, user actions and network requests (URLs, headers and bodies). Before a report is submitted, and again when the server ingests it, Crikket masks values it recognises as secrets:
+
+- `Authorization` headers (the scheme, such as `Bearer`, is kept)
+- cookies and `Set-Cookie` headers
+- tokens, API keys, passwords and session IDs in query strings, form bodies and JSON bodies, including JSON sent with another `Content-Type`
+
+Masked values become `[REDACTED]`, so the rest of each request stays readable.
+
+Redaction is deliberately conservative, not guaranteed complete. It matches field names and value shapes, so a secret under an unusual name, or inside free-form text, can still reach a report. Don't rely on it as your only protection: avoid capturing on pages that handle highly sensitive data, and keep reports private when they might contain it.

@@ -2,7 +2,7 @@ import { MAX_BODY_LENGTH } from "../../constants"
 import { toHeaderRecord } from "../../headers"
 import { shouldCaptureTextContent } from "../../serializer"
 import type { Reporter } from "../../types"
-import { sanitizeCapturedBody, truncate } from "../../utils"
+import { redactCapturedBody, truncate } from "../../utils"
 import { getTextBodyPreviewAsync, scheduleBackgroundTask } from "../shared"
 import type { PostNetworkPayload } from "../types"
 import type { FetchCaptureContext } from "./types"
@@ -92,11 +92,8 @@ export const scheduleFetchSuccessPost = (
       duration,
       requestHeaders: context.requestHeaders,
       responseHeaders,
-      requestBody: sanitizeCapturedBody(
-        requestBody,
-        context.requestContentType
-      ),
-      responseBody: sanitizeCapturedBody(responseBody, contentType),
+      requestBody: redactCapturedBody(requestBody, context.requestContentType),
+      responseBody: redactCapturedBody(responseBody, contentType),
     })
   })
 }
@@ -123,11 +120,8 @@ export const scheduleFetchFailurePost = (
       status: 0,
       duration: Date.now() - startedAt,
       requestHeaders: context.requestHeaders,
-      requestBody: sanitizeCapturedBody(
-        requestBody,
-        context.requestContentType
-      ),
-      responseBody: sanitizeCapturedBody(
+      requestBody: redactCapturedBody(requestBody, context.requestContentType),
+      responseBody: redactCapturedBody(
         truncate(stringifyValue(error), MAX_BODY_LENGTH),
         ""
       ),

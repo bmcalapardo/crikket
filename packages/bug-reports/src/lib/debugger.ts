@@ -9,63 +9,14 @@ import { retryOnUniqueViolation } from "@crikket/shared/lib/server/retry-on-uniq
 import { and, asc, count, eq, ilike, or, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import { z } from "zod"
+import { parseDebuggerData } from "./debugger-items"
 
 const MAX_DEBUGGER_ITEMS_PER_KIND = 2000
-const MAX_OFFSET_MS = 24 * 60 * 60 * 1000
 
-const debuggerMetadataSchema = z.record(z.string(), z.unknown()).optional()
-const debuggerHeadersSchema = z.record(z.string(), z.string()).optional()
 const debuggerUnknownArraySchema = z
   .array(z.unknown())
   .max(MAX_DEBUGGER_ITEMS_PER_KIND)
   .default([])
-
-const debuggerActionSchema = z.object({
-  type: z.string().min(1).max(80),
-  target: z.string().max(1000).optional(),
-  timestamp: z.string().datetime({ offset: true }),
-  offset: z
-    .number()
-    .int()
-    .nonnegative()
-    .max(MAX_OFFSET_MS)
-    .nullable()
-    .optional(),
-  metadata: debuggerMetadataSchema,
-})
-
-const debuggerLogSchema = z.object({
-  level: z.enum(["log", "info", "warn", "error", "debug"]),
-  message: z.string().min(1).max(4000),
-  timestamp: z.string().datetime({ offset: true }),
-  offset: z
-    .number()
-    .int()
-    .nonnegative()
-    .max(MAX_OFFSET_MS)
-    .nullable()
-    .optional(),
-  metadata: debuggerMetadataSchema,
-})
-
-const debuggerNetworkRequestSchema = z.object({
-  method: z.string().min(1).max(20),
-  url: z.string().min(1).max(4096),
-  status: z.number().int().nonnegative().max(999).optional(),
-  duration: z.number().int().nonnegative().max(MAX_OFFSET_MS).optional(),
-  requestHeaders: debuggerHeadersSchema,
-  responseHeaders: debuggerHeadersSchema,
-  requestBody: z.string().max(8000).optional(),
-  responseBody: z.string().max(8000).optional(),
-  timestamp: z.string().datetime({ offset: true }),
-  offset: z
-    .number()
-    .int()
-    .nonnegative()
-    .max(MAX_OFFSET_MS)
-    .nullable()
-    .optional(),
-})
 
 export const bugReportDebuggerInputSchema = z
   .object({
@@ -286,22 +237,8 @@ export async function persistBugReportDebuggerData(
     }
   }
 
-  const actions = parseDebuggerItems(
-    debuggerData.actions,
-    debuggerActionSchema,
-    "action events",
-    warnings
-  )
-  const logs = parseDebuggerItems(
-    debuggerData.logs,
-    debuggerLogSchema,
-    "log events",
-    warnings
-  )
-  const networkRequests = parseDebuggerItems(
-    debuggerData.networkRequests,
-    debuggerNetworkRequestSchema,
-    "network requests",
+  const { actions, logs, networkRequests } = parseDebuggerData(
+    debuggerData,
     warnings
   )
 
@@ -479,34 +416,6 @@ function asStringRecord(value: unknown): Record<string, string> | null {
   }
 
   return Object.keys(result).length > 0 ? result : null
-}
-
-function parseDebuggerItems<TParsed>(
-  input: unknown[],
-  schema: z.ZodType<TParsed>,
-  label: string,
-  warnings: string[]
-): TParsed[] {
-  const parsedItems: TParsed[] = []
-  let droppedCount = 0
-
-  for (const candidate of input) {
-    const parsed = schema.safeParse(candidate)
-    if (!parsed.success) {
-      droppedCount += 1
-      continue
-    }
-
-    parsedItems.push(parsed.data)
-  }
-
-  if (droppedCount > 0) {
-    warnings.push(
-      `Skipped ${droppedCount} invalid debugger ${label} before saving.`
-    )
-  }
-
-  return parsedItems
 }
 
 function getDebuggerItemCounts(
