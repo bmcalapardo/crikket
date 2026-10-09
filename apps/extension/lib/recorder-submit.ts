@@ -3,6 +3,10 @@ import { ORPCError } from "@orpc/client"
 
 const MAX_PAGE_TITLE_LENGTH = 300
 
+// fetch's network-failure messages in Chromium, Firefox and Safari.
+const NETWORK_FAILURE_PATTERN =
+  /Failed to fetch|NetworkError when attempting to fetch|Load failed/
+
 export interface DebuggerCaptureSummary {
   actions: number
   logs: number
@@ -86,11 +90,14 @@ export function getSubmissionErrorMessage(error: unknown): string {
   }
 
   if (error instanceof Error) {
-    if (
-      error.message.includes("Failed to fetch") ||
-      error.message.includes("Direct upload to storage failed")
-    ) {
+    if (error.message.includes("Direct upload to storage failed")) {
       return "Direct upload to storage failed. Check storage CORS or network access, then retry."
+    }
+
+    // Storage upload failures are always wrapped (above), so a bare network
+    // failure came from the call to Crikket itself.
+    if (NETWORK_FAILURE_PATTERN.test(error.message)) {
+      return "Couldn't reach Crikket. Check your connection, then retry."
     }
 
     return error.message

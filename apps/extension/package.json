@@ -12,7 +12,7 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "check-types": "tsc --noEmit -p tsconfig.json",
-    "test": "bun test test",
+    "test": "bun test --env-file=.env.example test",
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare"
   },
