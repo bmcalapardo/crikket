@@ -32,3 +32,4 @@
 - [BC] feat(extension): annotate screenshots with pen, undo/redo and click-to-delete (#13)
 
 ### v0.3.0
+- [BC] app(fix): show the sign-in message for opaque redirects and require an origin-only VITE_APP_URL
