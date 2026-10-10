@@ -32,3 +32,4 @@
 - [BC] feat(extension): annotate screenshots with pen, undo/redo and click-to-delete (#13)
 
 ### v0.3.0
+- [BC] feat(extension): pause and resume a recording, billing only playable length (#20)

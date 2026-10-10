@@ -70,6 +70,7 @@ interface DebuggerSubmissionInput {
 const STATE_DESCRIPTIONS: Record<RecorderState, string> = {
   idle: "Waiting for capture",
   recording: "Recording in progress...",
+  paused: "Recording paused",
   editing: "Crop the screenshot",
   annotating: "Annotate the screenshot",
   stopped: "Review and submit",
@@ -82,7 +83,9 @@ interface RecorderStepContentProps {
   state: RecorderState
   duration: number
   stopRecordingShortcut: string | null
+  togglePauseShortcut: string | null
   onStopRecording: () => Promise<void>
+  onTogglePause: () => void
   screenshotEdits: ScreenshotEdits | null
   onCropApply: (blob: Blob, rect: Rect) => void
   onCropReset: () => void
@@ -114,7 +117,9 @@ function RecorderStepContent({
   state,
   duration,
   stopRecordingShortcut,
+  togglePauseShortcut,
   onStopRecording,
+  onTogglePause,
   screenshotEdits,
   onCropApply,
   onCropReset,
@@ -152,11 +157,14 @@ function RecorderStepContent({
         </p>
       ) : null}
 
-      {state === "recording" ? (
+      {state === "recording" || state === "paused" ? (
         <RecordingStep
           duration={duration}
+          isPaused={state === "paused"}
           onStopRecording={onStopRecording}
+          onTogglePause={onTogglePause}
           stopRecordingShortcut={stopRecordingShortcut}
+          togglePauseShortcut={togglePauseShortcut}
         />
       ) : null}
 
@@ -225,7 +233,6 @@ function App() {
   // the tester entered editing, and what Cancel returns to.
   const editSessionStartRef = useRef<ScreenshotEdits | null>(null)
   const [captureType, setCaptureType] = useState<CaptureType>("video")
-  const [startTime, setStartTime] = useState<number | null>(null)
   const [recordedDurationMs, setRecordedDurationMs] = useState<number | null>(
     null
   )
@@ -248,9 +255,12 @@ function App() {
     recordedBlob,
     error: captureError,
     reset: resetCapture,
+    getDurationMs,
+    pauseRecording: pauseCapture,
+    resumeRecording: resumeCapture,
   } = useScreenCapture()
 
-  const duration = useTimer(startTime, state === "recording")
+  const duration = useTimer(getDurationMs, state === "recording")
 
   const clearDebuggerState = useCallback(async () => {
     if (debuggerSessionId) {
@@ -325,17 +335,29 @@ function App() {
   }, [debuggerSessionId])
 
   const handleStopRecording = useCallback(async () => {
-    const stoppedAt = Date.now()
     await stopCapture()
-    if (startTime) {
-      setRecordedDurationMs(Math.max(0, stoppedAt - startTime))
-    }
+    // Playable length: time spent paused is not part of the media.
+    setRecordedDurationMs(getDurationMs())
     setState("stopped")
-  }, [startTime, stopCapture])
+  }, [getDurationMs, stopCapture])
+
+  const handleTogglePause = useCallback(() => {
+    if (state === "recording") {
+      if (pauseCapture()) {
+        setState("paused")
+      }
+      return
+    }
+    if (state === "paused" && resumeCapture()) {
+      setState("recording")
+    }
+  }, [pauseCapture, resumeCapture, state])
 
   useRecorderRecordingSync({
     captureType,
+    getDurationMs,
     onStopFromPopup: handleStopRecording,
+    onTogglePause: handleTogglePause,
     state,
   })
 
@@ -356,20 +378,18 @@ function App() {
         })
       }
 
-      setStartTime(startedAt)
       setRecordedDurationMs(null)
       setState("recording")
     }
   }, [debuggerSessionId, startCapture])
 
   useEffect(() => {
-    if (state === "recording" && recordedBlob) {
-      if (startTime) {
-        setRecordedDurationMs(Math.max(0, Date.now() - startTime))
-      }
+    // The capture ended on its own (e.g. the tab closed), possibly while paused.
+    if ((state === "recording" || state === "paused") && recordedBlob) {
+      setRecordedDurationMs(getDurationMs())
       setState("stopped")
     }
-  }, [recordedBlob, startTime, state])
+  }, [getDurationMs, recordedBlob, state])
 
   useEffect(() => {
     if (state !== "stopped") {
@@ -474,7 +494,6 @@ function App() {
     setPreSubmitWarnings([])
     setDebuggerSummary(EMPTY_DEBUGGER_SUMMARY)
     setRecordedDurationMs(null)
-    setStartTime(null)
     clearDebuggerState().catch((error: unknown) => {
       reportNonFatalError("Failed to clear debugger state after reset", error)
     })
@@ -505,10 +524,7 @@ function App() {
     try {
       const durationMs =
         captureType === "video"
-          ? Math.max(
-              0,
-              recordedDurationMs ?? (startTime ? Date.now() - startTime : 0)
-            )
+          ? Math.max(0, Math.round(recordedDurationMs ?? getDurationMs()))
           : 0
       const debuggerSubmission = await getDebuggerSubmissionInput()
       const captureContextSubmissionData =
@@ -580,6 +596,10 @@ function App() {
       document.title = `Recording ${formatDuration(duration)} - Crikket`
       return
     }
+    if (state === "paused") {
+      document.title = `Paused ${formatDuration(duration)} - Crikket`
+      return
+    }
 
     document.title = "Crikket Bug Report"
   }, [duration, state])
@@ -611,6 +631,7 @@ function App() {
             onEditScreenshot={handleEditScreenshot}
             onStopRecording={handleStopRecording}
             onSubmit={handleSubmit}
+            onTogglePause={handleTogglePause}
             preSubmitWarnings={preSubmitWarnings}
             previewUrl={previewUrl}
             resultUrl={resultUrl}
@@ -620,6 +641,7 @@ function App() {
             submissionWarnings={submissionWarnings}
             submitError={submitError}
             suggestedTitle={suggestedTitle}
+            togglePauseShortcut={shortcuts.togglePauseRecording}
             videoDurationMs={
               captureType === "video"
                 ? (recordedDurationMs ?? (duration > 0 ? duration : null))

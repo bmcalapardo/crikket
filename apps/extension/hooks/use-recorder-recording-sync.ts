@@ -5,19 +5,26 @@ import {
   RECORDER_TAB_ID_STORAGE_KEY,
   RECORDING_COUNTDOWN_ENDS_AT_STORAGE_KEY,
   RECORDING_IN_PROGRESS_STORAGE_KEY,
+  RECORDING_PAUSED_MS_STORAGE_KEY,
   RECORDING_STARTED_AT_STORAGE_KEY,
 } from "@/lib/capture-context"
+import { TOGGLE_PAUSE_RECORDING_MESSAGE } from "@/lib/recorder-hotkey-commands"
 import type { RecorderState } from "@/lib/recorder-state"
 
 interface UseRecorderRecordingSyncProps {
   captureType: CaptureType
+  /** Playable length so far, excluding paused stretches. */
+  getDurationMs: () => number
   state: RecorderState
   onStopFromPopup: () => Promise<void>
+  onTogglePause: () => void
 }
 
 export function useRecorderRecordingSync({
   captureType,
+  getDurationMs,
   onStopFromPopup,
+  onTogglePause,
   state,
 }: UseRecorderRecordingSyncProps) {
   useEffect(() => {
@@ -28,6 +35,7 @@ export function useRecorderRecordingSync({
       await chrome.storage.local.remove([
         RECORDER_TAB_ID_STORAGE_KEY,
         RECORDING_COUNTDOWN_ENDS_AT_STORAGE_KEY,
+        RECORDING_PAUSED_MS_STORAGE_KEY,
         RECORDING_STARTED_AT_STORAGE_KEY,
       ])
     }
@@ -57,14 +65,27 @@ export function useRecorderRecordingSync({
 
       if (state === "recording") {
         const currentTab = await chrome.tabs.getCurrent()
+        // The popup shows now - startedAt, so anchor it to the playable
+        // length: time already spent paused must not show up as elapsed.
         await chrome.storage.local.set({
           [RECORDING_IN_PROGRESS_STORAGE_KEY]: true,
-          [RECORDING_STARTED_AT_STORAGE_KEY]: Date.now(),
+          [RECORDING_STARTED_AT_STORAGE_KEY]: Date.now() - getDurationMs(),
           [RECORDER_TAB_ID_STORAGE_KEY]: currentTab?.id,
         })
         await chrome.storage.local.remove([
           RECORDING_COUNTDOWN_ENDS_AT_STORAGE_KEY,
+          RECORDING_PAUSED_MS_STORAGE_KEY,
         ])
+        return
+      }
+
+      if (state === "paused") {
+        const currentTab = await chrome.tabs.getCurrent()
+        await chrome.storage.local.set({
+          [RECORDING_IN_PROGRESS_STORAGE_KEY]: true,
+          [RECORDING_PAUSED_MS_STORAGE_KEY]: getDurationMs(),
+          [RECORDER_TAB_ID_STORAGE_KEY]: currentTab?.id,
+        })
         return
       }
 
@@ -74,12 +95,18 @@ export function useRecorderRecordingSync({
     syncRecordingState().catch((error: unknown) => {
       reportNonFatalError("Failed to sync recorder recording state", error)
     })
-  }, [captureType, state])
+  }, [captureType, getDurationMs, state])
 
   useEffect(() => {
     const handleMessage = (message: { type?: string }) => {
+      if (message.type === TOGGLE_PAUSE_RECORDING_MESSAGE) {
+        if (state === "recording" || state === "paused") {
+          onTogglePause()
+        }
+        return
+      }
       if (message.type !== "STOP_RECORDING_FROM_POPUP") return
-      if (state !== "recording") return
+      if (state !== "recording" && state !== "paused") return
       onStopFromPopup().catch((error: unknown) => {
         reportNonFatalError(
           "Failed to stop recording from popup trigger",
@@ -93,7 +120,7 @@ export function useRecorderRecordingSync({
     return () => {
       chrome.runtime.onMessage.removeListener(handleMessage)
     }
-  }, [onStopFromPopup, state])
+  }, [onStopFromPopup, onTogglePause, state])
 
   useEffect(() => {
     return () => {
@@ -103,6 +130,7 @@ export function useRecorderRecordingSync({
       chrome.storage.local.remove([
         RECORDER_TAB_ID_STORAGE_KEY,
         RECORDING_COUNTDOWN_ENDS_AT_STORAGE_KEY,
+        RECORDING_PAUSED_MS_STORAGE_KEY,
         RECORDING_STARTED_AT_STORAGE_KEY,
       ])
     }

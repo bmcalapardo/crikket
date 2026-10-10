@@ -4,11 +4,13 @@ import {
   RECORDER_TAB_ID_STORAGE_KEY,
   RECORDING_COUNTDOWN_ENDS_AT_STORAGE_KEY,
   RECORDING_IN_PROGRESS_STORAGE_KEY,
+  RECORDING_PAUSED_MS_STORAGE_KEY,
   RECORDING_STARTED_AT_STORAGE_KEY,
 } from "@/lib/capture-context"
 
 interface UsePopupRecordingStatusReturn {
   isRecordingInProgress: boolean
+  isRecordingPaused: boolean
   recordingCountdown: number | null
   recordingDurationMs: number
   isStoppingFromPopup: boolean
@@ -25,6 +27,9 @@ export function usePopupRecordingStatus(): UsePopupRecordingStatusReturn {
     null
   )
   const [recordingDurationMs, setRecordingDurationMs] = useState(0)
+  const [recordingPausedMs, setRecordingPausedMs] = useState<number | null>(
+    null
+  )
   const [recorderTabId, setRecorderTabId] = useState<number | null>(null)
   const [isStoppingFromPopup, setIsStoppingFromPopup] = useState(false)
   const [stopError, setStopError] = useState<string | null>(null)
@@ -36,6 +41,7 @@ export function usePopupRecordingStatus(): UsePopupRecordingStatusReturn {
     await chrome.storage.local.remove([
       RECORDER_TAB_ID_STORAGE_KEY,
       RECORDING_COUNTDOWN_ENDS_AT_STORAGE_KEY,
+      RECORDING_PAUSED_MS_STORAGE_KEY,
       RECORDING_STARTED_AT_STORAGE_KEY,
     ])
   }, [])
@@ -75,6 +81,7 @@ export function usePopupRecordingStatus(): UsePopupRecordingStatusReturn {
         RECORDER_TAB_ID_STORAGE_KEY,
         RECORDING_COUNTDOWN_ENDS_AT_STORAGE_KEY,
         RECORDING_STARTED_AT_STORAGE_KEY,
+        RECORDING_PAUSED_MS_STORAGE_KEY,
       ])
 
       const tabId = result[RECORDER_TAB_ID_STORAGE_KEY]
@@ -83,6 +90,7 @@ export function usePopupRecordingStatus(): UsePopupRecordingStatusReturn {
           ? (result[RECORDING_COUNTDOWN_ENDS_AT_STORAGE_KEY] as number)
           : null
       const startedAt = result[RECORDING_STARTED_AT_STORAGE_KEY]
+      const pausedMs = result[RECORDING_PAUSED_MS_STORAGE_KEY]
 
       return {
         isRecording: Boolean(result[RECORDING_IN_PROGRESS_STORAGE_KEY]),
@@ -90,6 +98,7 @@ export function usePopupRecordingStatus(): UsePopupRecordingStatusReturn {
         countdownEndsAt,
         recordingStartedAtValue:
           typeof startedAt === "number" ? startedAt : null,
+        recordingPausedMsValue: typeof pausedMs === "number" ? pausedMs : null,
       }
     }
 
@@ -138,6 +147,7 @@ export function usePopupRecordingStatus(): UsePopupRecordingStatusReturn {
         storedTabId,
         countdownEndsAt,
         recordingStartedAtValue,
+        recordingPausedMsValue,
       } = await readRecordingState()
 
       if (!isRecording) {
@@ -157,6 +167,7 @@ export function usePopupRecordingStatus(): UsePopupRecordingStatusReturn {
       setIsRecordingInProgress(true)
       setRecorderTabId(resolvedRecorderTabId)
       setRecordingStartedAt(recordingStartedAtValue)
+      setRecordingPausedMs(recordingPausedMsValue)
       updateCountdown(countdownEndsAt ?? undefined)
     }
 
@@ -170,7 +181,8 @@ export function usePopupRecordingStatus(): UsePopupRecordingStatusReturn {
           changes[RECORDING_IN_PROGRESS_STORAGE_KEY] ||
           changes[RECORDER_TAB_ID_STORAGE_KEY] ||
           changes[RECORDING_COUNTDOWN_ENDS_AT_STORAGE_KEY] ||
-          changes[RECORDING_STARTED_AT_STORAGE_KEY]
+          changes[RECORDING_STARTED_AT_STORAGE_KEY] ||
+          changes[RECORDING_PAUSED_MS_STORAGE_KEY]
         )
       ) {
         return
@@ -194,6 +206,11 @@ export function usePopupRecordingStatus(): UsePopupRecordingStatusReturn {
   }, [clearRecordingState])
 
   useEffect(() => {
+    if (isRecordingInProgress && recordingPausedMs !== null) {
+      setRecordingDurationMs(recordingPausedMs)
+      return
+    }
+
     if (!(isRecordingInProgress && recordingStartedAt)) {
       setRecordingDurationMs(0)
       return
@@ -209,7 +226,7 @@ export function usePopupRecordingStatus(): UsePopupRecordingStatusReturn {
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [isRecordingInProgress, recordingStartedAt])
+  }, [isRecordingInProgress, recordingPausedMs, recordingStartedAt])
 
   const stopFromPopup = useCallback(async () => {
     setIsStoppingFromPopup(true)
@@ -273,6 +290,7 @@ export function usePopupRecordingStatus(): UsePopupRecordingStatusReturn {
 
   return {
     isRecordingInProgress,
+    isRecordingPaused: isRecordingInProgress && recordingPausedMs !== null,
     recordingCountdown,
     recordingDurationMs,
     isStoppingFromPopup,
