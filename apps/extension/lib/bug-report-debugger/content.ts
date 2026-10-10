@@ -25,6 +25,8 @@ export function setupDebuggerContentBridge(): void {
 
   const BATCH_SIZE = 40
   const FLUSH_INTERVAL_MS = 120
+  // The page world can post unlimited forged events; keep only the newest.
+  const MAX_QUEUE_SIZE = 1000
 
   const flushQueue = () => {
     flushTimer = null
@@ -59,6 +61,9 @@ export function setupDebuggerContentBridge(): void {
 
     for (const candidate of events) {
       queue.push(candidate)
+    }
+    if (queue.length > MAX_QUEUE_SIZE) {
+      queue.splice(0, queue.length - MAX_QUEUE_SIZE)
     }
 
     if (queue.length >= BATCH_SIZE) {
