@@ -67,6 +67,10 @@ interface FormStepProps {
   }) => void
   onCancel: () => void
   onEditScreenshot?: () => void
+  onRestoreOriginalVideo?: () => void
+  onTrimVideo?: () => void
+  /** One line describing an applied trim, e.g. its real cut points. */
+  trimSummary?: string | null
 }
 
 interface FormValues {
@@ -88,6 +92,9 @@ export function FormStep({
   onSubmit,
   onCancel,
   onEditScreenshot,
+  onRestoreOriginalVideo,
+  onTrimVideo,
+  trimSummary,
 }: FormStepProps) {
   const defaultValues: FormValues = {
     title: initialTitle,
@@ -353,6 +360,26 @@ export function FormStep({
           </form.Field>
         </div>
 
+        {captureType === "video" && trimSummary ? (
+          <div
+            className="flex items-center justify-between gap-3 rounded-xl border bg-muted/20 p-4 text-sm"
+            data-testid="trim-summary"
+          >
+            <span>{trimSummary}</span>
+            {onRestoreOriginalVideo ? (
+              <Button
+                disabled={isBusy}
+                onClick={onRestoreOriginalVideo}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                Restore original
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
         {preSubmitWarnings.length > 0 ? (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
             <p className="flex items-center gap-2 font-medium text-amber-800 text-sm">
@@ -386,6 +413,17 @@ export function FormStep({
           >
             Cancel
           </Button>
+          {captureType === "video" && onTrimVideo ? (
+            <Button
+              className="flex-1"
+              disabled={isBusy}
+              onClick={onTrimVideo}
+              type="button"
+              variant="outline"
+            >
+              Trim
+            </Button>
+          ) : null}
           {captureType === "screenshot" && onEditScreenshot ? (
             <Button
               className="flex-1"

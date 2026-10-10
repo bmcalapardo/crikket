@@ -5,5 +5,6 @@ export type RecorderState =
   | "stopped"
   | "editing"
   | "annotating"
+  | "trimming"
   | "submitting"
   | "success"

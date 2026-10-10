@@ -22,6 +22,7 @@ import { CropStep } from "@/components/crop-step"
 import { FormStep } from "@/components/form-step"
 import { RecordingStep } from "@/components/recording-step"
 import { SuccessStep } from "@/components/success-step"
+import { TrimStep } from "@/components/trim-step"
 import { useCaptureContext } from "@/hooks/use-capture-context"
 import { useCommandShortcuts } from "@/hooks/use-command-shortcuts"
 import { type CaptureType, useRecorderInit } from "@/hooks/use-recorder-init"
@@ -59,6 +60,12 @@ import {
   startScreenshotEdits,
 } from "@/lib/screenshot-edits"
 import { formatDuration, getDeviceInfo } from "@/lib/utils"
+import {
+  currentTrim,
+  submittedDurationMs,
+  type VideoTrim,
+  videoToSubmit,
+} from "@/lib/video-trim"
 
 interface DebuggerSubmissionInput {
   sessionId: string | null
@@ -73,6 +80,7 @@ const STATE_DESCRIPTIONS: Record<RecorderState, string> = {
   paused: "Recording paused",
   editing: "Crop the screenshot",
   annotating: "Annotate the screenshot",
+  trimming: "Trim the recording",
   stopped: "Review and submit",
   submitting: "Review and submit",
   success: "Report submitted!",
@@ -94,6 +102,12 @@ interface RecorderStepContentProps {
   onAnnotateCancel: () => void
   onAnnotateReset: () => void
   onEditScreenshot: () => void
+  onTrimApply: (trim: VideoTrim) => void
+  onTrimCancel: () => void
+  onTrimRestore: () => void
+  onTrimStart: () => void
+  originalVideo: Blob | null
+  trimSummary: string | null
   captureType: CaptureType
   debuggerSummary: DebuggerCaptureSummary
   suggestedTitle: string
@@ -128,6 +142,12 @@ function RecorderStepContent({
   onAnnotateCancel,
   onAnnotateReset,
   onEditScreenshot,
+  onTrimApply,
+  onTrimCancel,
+  onTrimRestore,
+  onTrimStart,
+  originalVideo,
+  trimSummary,
   captureType,
   debuggerSummary,
   suggestedTitle,
@@ -190,12 +210,21 @@ function RecorderStepContent({
         />
       ) : null}
 
+      {state === "trimming" && originalVideo ? (
+        <TrimStep
+          onApply={onTrimApply}
+          onCancel={onTrimCancel}
+          original={originalVideo}
+        />
+      ) : null}
+
       {/* Kept mounted (hidden) while editing so typed form fields survive a
           trip back to the edit stage. */}
       {state === "stopped" ||
       state === "submitting" ||
+      state === "trimming" ||
       (isEditStage && screenshotEdits) ? (
-        <div hidden={isEditStage}>
+        <div hidden={isEditStage || state === "trimming"}>
           <FormStep
             captureType={captureType}
             debuggerSummary={debuggerSummary}
@@ -203,10 +232,13 @@ function RecorderStepContent({
             isSubmitting={state === "submitting"}
             onCancel={onCancel}
             onEditScreenshot={onEditScreenshot}
+            onRestoreOriginalVideo={trimSummary ? onTrimRestore : undefined}
             onSubmit={onSubmit}
+            onTrimVideo={onTrimStart}
             preSubmitWarnings={preSubmitWarnings}
             previewUrl={previewUrl}
             submitError={submitError}
+            trimSummary={trimSummary}
             videoDurationMs={videoDurationMs}
           />
         </div>
@@ -236,6 +268,9 @@ function App() {
   const [recordedDurationMs, setRecordedDurationMs] = useState<number | null>(
     null
   )
+  // The original capture stays in `recordedBlob` until submission; a trim is
+  // a separate blob layered on top, so it can be cancelled or restored.
+  const [storedVideoTrim, setVideoTrim] = useState<VideoTrim | null>(null)
   const [resultUrl, setResultUrl] = useState("")
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submissionWarnings, setSubmissionWarnings] = useState<string[]>([])
@@ -259,6 +294,8 @@ function App() {
     pauseRecording: pauseCapture,
     resumeRecording: resumeCapture,
   } = useScreenCapture()
+  // A trim cut from an earlier capture must never survive into a new one.
+  const videoTrim = currentTrim(recordedBlob, storedVideoTrim)
 
   const duration = useTimer(getDurationMs, state === "recording")
 
@@ -484,7 +521,16 @@ function App() {
     setState("editing")
   }, [screenshotEdits])
 
+  const handleTrimStart = useCallback(() => setState("trimming"), [])
+  const handleTrimCancel = useCallback(() => setState("stopped"), [])
+  const handleTrimApply = useCallback((trim: VideoTrim) => {
+    setVideoTrim(trim)
+    setState("stopped")
+  }, [])
+  const handleTrimRestore = useCallback(() => setVideoTrim(null), [])
+
   const handleReset = () => {
+    setVideoTrim(null)
     resetCapture()
     setScreenshotEdits(null)
     setState("idle")
@@ -502,7 +548,10 @@ function App() {
   const screenshotBlob = screenshotEdits
     ? screenshotToSubmit(screenshotEdits)
     : null
-  const activeBlob = captureType === "video" ? recordedBlob : screenshotBlob
+  const activeBlob =
+    captureType === "video"
+      ? videoToSubmit(recordedBlob, videoTrim)
+      : screenshotBlob
 
   const handleSubmit = async (values: {
     title: string
@@ -524,7 +573,10 @@ function App() {
     try {
       const durationMs =
         captureType === "video"
-          ? Math.max(0, Math.round(recordedDurationMs ?? getDurationMs()))
+          ? submittedDurationMs(
+              videoTrim,
+              recordedDurationMs ?? getDurationMs()
+            )
           : 0
       const debuggerSubmission = await getDebuggerSubmissionInput()
       const captureContextSubmissionData =
@@ -588,6 +640,17 @@ function App() {
     if (!activeBlob) return null
     return URL.createObjectURL(activeBlob)
   }, [activeBlob])
+  // Trim and restore swap the preview blob; release the superseded URL.
+  useEffect(
+    () => () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    },
+    [previewUrl]
+  )
+
+  const trimSummary = videoTrim
+    ? `Trimmed to ${(videoTrim.startMs / 1000).toFixed(2)}s - ${(videoTrim.endMs / 1000).toFixed(2)}s of the original (${formatDuration(Math.round(videoTrim.durationMs))}). Cuts land on keyframes.`
+    : null
 
   const error = captureError || submitError
 
@@ -632,6 +695,11 @@ function App() {
             onStopRecording={handleStopRecording}
             onSubmit={handleSubmit}
             onTogglePause={handleTogglePause}
+            onTrimApply={handleTrimApply}
+            onTrimCancel={handleTrimCancel}
+            onTrimRestore={handleTrimRestore}
+            onTrimStart={handleTrimStart}
+            originalVideo={recordedBlob}
             preSubmitWarnings={preSubmitWarnings}
             previewUrl={previewUrl}
             resultUrl={resultUrl}
@@ -642,9 +710,12 @@ function App() {
             submitError={submitError}
             suggestedTitle={suggestedTitle}
             togglePauseShortcut={shortcuts.togglePauseRecording}
+            trimSummary={trimSummary}
             videoDurationMs={
               captureType === "video"
-                ? (recordedDurationMs ?? (duration > 0 ? duration : null))
+                ? (videoTrim?.durationMs ??
+                  recordedDurationMs ??
+                  (duration > 0 ? duration : null))
                 : null
             }
           />

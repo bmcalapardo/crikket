@@ -7,6 +7,10 @@ import {
   type PausableRecorder,
   type RecorderLike,
 } from "@/lib/pausable-recording"
+import {
+  pickRecorderMimeType,
+  resolveRecordingMimeType,
+} from "@/lib/recorder-mime"
 
 export interface UseScreenCaptureReturn {
   error: string | null
@@ -40,6 +44,7 @@ export function useScreenCapture(): UseScreenCaptureReturn {
 
   const controllerRef = useRef<PausableRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const mimeTypeRef = useRef<string>("video/webm")
 
   const stopRecording = useCallback(async (): Promise<Blob | null> => {
     const controller = controllerRef.current
@@ -52,7 +57,7 @@ export function useScreenCapture(): UseScreenCaptureReturn {
       return null
     }
 
-    const blob = new Blob(result.chunks, { type: "video/webm" })
+    const blob = new Blob(result.chunks, { type: mimeTypeRef.current })
     setRecordedBlob(blob)
     setIsRecording(false)
     setIsPaused(false)
@@ -78,9 +83,21 @@ export function useScreenCapture(): UseScreenCaptureReturn {
 
       streamRef.current = stream
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "video/webm;codecs=vp9",
-      })
+      // Not every browser supports VP9; probe, and fall back to the
+      // browser default if nothing in the preference list is supported.
+      const requestedMimeType = pickRecorderMimeType(
+        typeof MediaRecorder.isTypeSupported === "function"
+          ? (type) => MediaRecorder.isTypeSupported(type)
+          : undefined
+      )
+      const mediaRecorder = requestedMimeType
+        ? new MediaRecorder(stream, { mimeType: requestedMimeType })
+        : new MediaRecorder(stream)
+      // Trim reads the blob type, so record what the recorder really produces.
+      mimeTypeRef.current = resolveRecordingMimeType(
+        mediaRecorder.mimeType,
+        requestedMimeType
+      )
       // performance.now() is monotonic, so wall-clock adjustments cannot bend
       // the playable duration.
       const controller = createPausableRecorder({
