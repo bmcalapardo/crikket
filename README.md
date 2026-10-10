@@ -44,7 +44,7 @@ Every report is designed to reduce the usual debugging back-and-forth.
 | --- | --- |
 | Capture | One-click screenshot and video bug reports |
 | Reproduction | Recorded steps to help replay what happened |
-| Technical context | Console logs and network requests attached to the report |
+| Technical context | Console logs and network requests attached to the report, with recognised secrets redacted (best effort, not guaranteed) |
 | Sharing | Public or private share links per report |
 | Collaboration | Team workspaces, invites, and report management |
 | Deployment | Quick and easy self-hosting |
