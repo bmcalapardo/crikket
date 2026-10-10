@@ -290,7 +290,7 @@ export function resetSdkTestState(): void {
 
 export async function waitFor(
   predicate: () => boolean,
-  timeoutMs = 1000
+  timeoutMs = 10_000
 ): Promise<void> {
   const startedAt = Date.now()
 

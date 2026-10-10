@@ -32,3 +32,4 @@
 - [BC] feat(extension): annotate screenshots with pen, undo/redo and click-to-delete (#13)
 
 ### v0.3.0
+- [BC] test(extension): wait on conditions instead of ticks and best-of-N timing so tests pass under load

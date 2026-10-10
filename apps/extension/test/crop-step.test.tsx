@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client"
 
 import { CropStep } from "../components/crop-step"
 import { registerDomEnvironment } from "../happydom"
+import { waitFor } from "./wait-for"
 
 let container: HTMLDivElement | undefined
 let root: Root | undefined
@@ -73,7 +74,12 @@ describe("CropStep", () => {
 
   it("creates a keyboard-accessible selection via the Select Region button", async () => {
     const rendered = renderCropStep()
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    // The image is only rendered once the Capture has been turned into an
+    // object URL by an effect; Select Region does nothing before that.
+    await waitFor(
+      () => rendered.querySelector("img") !== null,
+      "the screenshot to render"
+    )
     const buttons = [...rendered.querySelectorAll("button")]
     const selectRegionButton = buttons.find(
       (b) => b.textContent === "Select Region"
