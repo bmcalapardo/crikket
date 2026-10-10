@@ -1,0 +1,10 @@
+{
+  "installCommand": "cd ../.. && bun install --frozen-lockfile",
+  "buildCommand": "bun run build",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ]
+}

@@ -45,7 +45,7 @@
     },
     "apps/extension": {
       "name": "extension",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "dependencies": {
         "@crikket/api": "workspace:*",
         "@crikket/capture-core": "workspace:*",
@@ -70,6 +70,19 @@
         "tailwindcss": "catalog:",
         "typescript": "catalog:",
         "wxt": "^0.20.6",
+      },
+    },
+    "apps/qa-fixtures": {
+      "name": "qa-fixtures",
+      "version": "0.1.0",
+      "dependencies": {
+        "hono": "catalog:",
+      },
+      "devDependencies": {
+        "@crikket/capture-core": "workspace:*",
+        "@crikket/config": "workspace:*",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
       },
     },
     "apps/server": {
@@ -2742,6 +2755,8 @@
     "pupa": ["pupa@3.3.0", "", { "dependencies": { "escape-goat": "^4.0.0" } }, "sha512-LjgDO2zPtoXP2wJpDjZrGdojii1uqO0cnwKoIoUzkfS98HDmbeiGmYiXo3lXeFlq2xvne1QFQhwYXSUCLKtEuA=="],
 
     "pure-rand": ["pure-rand@6.1.0", "", {}, "sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA=="],
+
+    "qa-fixtures": ["qa-fixtures@workspace:apps/qa-fixtures"],
 
     "qs": ["qs@6.15.0", "", { "dependencies": { "side-channel": "^1.1.0" } }, "sha512-mAZTtNCeetKMH+pSjrb76NAM8V9a05I9aBZOHztWy/UqcJdQYNsf59vrRKWnojAT9Y+GbIvoTBC++CPHqpDBhQ=="],
 

@@ -1,0 +1,23 @@
+---
+title: QA fixtures
+description: Deploy and use the known-bad test site that Crikket captures are checked against.
+---
+
+`apps/qa-fixtures` is a small private site with deterministic problems, for testing Crikket by hand or in automated end-to-end runs. It is not needed for running Crikket itself.
+
+## Scenarios
+
+| Page | Problem |
+| --- | --- |
+| `/scenarios/working` | None (control) |
+| `/scenarios/console-error` | One `console.error` on load |
+| `/scenarios/network-500` | A request that always returns 500 |
+| `/scenarios/slow` | A request delayed by `?ms=` (default 3000, capped at 10000) |
+| `/scenarios/broken-image` | An image that always 404s |
+| `/scenarios/form-failure` | A form whose submit always returns 422 |
+| `/scenarios/long-page` | A 12000px content block for scroll-and-stitch capture |
+| `/scenarios/sensitive` | A fake token, cookie and password; none may appear in a report |
+
+## Deploy one per channel
+
+Create one Vercel project per channel (Alpha, Beta, Stable) with Root Directory `apps/qa-fixtures`, or build the Docker image with `docker build -f apps/qa-fixtures/Dockerfile .` and run it on port 4100. It needs no environment variables. See `apps/qa-fixtures/README.md` for details.

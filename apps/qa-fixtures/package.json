@@ -1,0 +1,22 @@
+{
+  "name": "qa-fixtures",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/index.ts --target bun --outdir dist",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test test"
+  },
+  "dependencies": {
+    "hono": "catalog:"
+  },
+  "devDependencies": {
+    "@crikket/capture-core": "workspace:*",
+    "@crikket/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}
