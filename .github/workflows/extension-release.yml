@@ -84,10 +84,14 @@ jobs:
 
       - name: Package Chromium
         working-directory: apps/extension
+        env:
+          VITE_BUILD_SHA: ${{ github.sha }}
         run: bun run zip
 
       - name: Package Firefox
         working-directory: apps/extension
+        env:
+          VITE_BUILD_SHA: ${{ github.sha }}
         run: bun run zip:firefox
 
       - name: Name artifacts

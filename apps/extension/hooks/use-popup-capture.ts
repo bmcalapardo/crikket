@@ -15,6 +15,7 @@ import {
   RECORDING_IN_PROGRESS_STORAGE_KEY,
   RECORDING_STARTED_AT_STORAGE_KEY,
 } from "@/lib/capture-context"
+import { recordCaptureSuccess } from "@/lib/diagnostics/last-capture"
 
 export type PopupCaptureType = "video" | "screenshot"
 
@@ -162,6 +163,7 @@ async function startScreenshotCapture(input: {
     [CAPTURE_CONTEXT_STORAGE_KEY]: input.captureContext,
     pendingScreenshot: base64data,
   })
+  await recordCaptureSuccess("screenshot")
 
   const recorderUrl = appendDebuggerSessionIdToUrl(
     chrome.runtime.getURL("/recorder.html?captureType=screenshot"),

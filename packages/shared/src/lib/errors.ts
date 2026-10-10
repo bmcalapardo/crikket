@@ -2,7 +2,21 @@ interface NonFatalErrorOptions {
   once?: boolean
 }
 
+type NonFatalErrorListener = (context: string, error: unknown) => void
+
 const reportedContexts = new Set<string>()
+const listeners = new Set<NonFatalErrorListener>()
+
+// Lets a surface (the extension's diagnostics page) observe every non-fatal
+// error without each call site knowing about it. Returns an unsubscribe.
+export function addNonFatalErrorListener(
+  listener: NonFatalErrorListener
+): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
 
 export function reportNonFatalError(
   context: string,
@@ -18,6 +32,14 @@ export function reportNonFatalError(
   }
 
   console.warn(`[Non-fatal] ${context}`, error)
+
+  for (const listener of listeners) {
+    try {
+      listener(context, error)
+    } catch {
+      // A broken listener must never turn a non-fatal error into a fatal one.
+    }
+  }
 }
 
 interface ErrorWithCode {
