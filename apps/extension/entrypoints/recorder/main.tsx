@@ -2,7 +2,10 @@ import "@crikket/ui/styles/globals.css"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import React from "react"
 import ReactDOM from "react-dom/client"
+import { installErrorLog } from "@/lib/diagnostics/error-log"
 import App from "./App"
+
+installErrorLog()
 
 const queryClient = new QueryClient()
 

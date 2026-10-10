@@ -5,11 +5,13 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "env": ["VITE_BUILD_SHA"],
       "outputs": ["dist/**", ".next/**", ".output/**"]
     },
     "build:firefox": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "env": ["VITE_BUILD_SHA"],
       "outputs": ["dist/**", ".output/**"]
     },
     "lint": {

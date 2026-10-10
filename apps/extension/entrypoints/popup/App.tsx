@@ -1,6 +1,6 @@
 import { reportNonFatalError } from "@crikket/shared/lib/errors"
 import { Button } from "@crikket/ui/components/ui/button"
-import { Keyboard } from "lucide-react"
+import { Keyboard, Stethoscope } from "lucide-react"
 import { PopupCaptureActions } from "@/components/popup-capture-actions"
 import { useCommandShortcuts } from "@/hooks/use-command-shortcuts"
 import { useHotkeyTrigger } from "@/hooks/use-hotkey-trigger"
@@ -108,6 +108,25 @@ function App() {
         >
           <Keyboard />
           Keyboard shortcuts
+        </Button>
+
+        <Button
+          className="justify-start text-muted-foreground"
+          onClick={async () => {
+            try {
+              await chrome.tabs.create({
+                url: chrome.runtime.getURL("/diagnostics.html"),
+              })
+              window.close()
+            } catch (error: unknown) {
+              reportNonFatalError("Failed to open the diagnostics page", error)
+            }
+          }}
+          size="sm"
+          variant="ghost"
+        >
+          <Stethoscope />
+          Diagnostics
         </Button>
       </div>
     </div>

@@ -1,8 +1,10 @@
 import { reportNonFatalError } from "@crikket/shared/lib/errors"
 import { registerDebuggerBackgroundListeners } from "@/lib/bug-report-debugger/engine/background"
+import { installErrorLog } from "@/lib/diagnostics/error-log"
 import { handleRecorderHotkeyCommand } from "@/lib/recorder-hotkey-commands"
 
 export default defineBackground(() => {
+  installErrorLog()
   registerDebuggerBackgroundListeners()
 
   chrome.commands.onCommand.addListener((command) => {

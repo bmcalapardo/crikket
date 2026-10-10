@@ -1,8 +1,17 @@
 import { defineConfig } from "wxt"
+import { resolveBuildSha } from "./lib/build-sha"
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
+  // CI sets VITE_BUILD_SHA from github.sha; developer builds report "local".
+  vite: () => ({
+    define: {
+      "import.meta.env.VITE_BUILD_SHA": JSON.stringify(
+        resolveBuildSha(process.env.VITE_BUILD_SHA)
+      ),
+    },
+  }),
   manifest: {
     name: "Crikket",
     short_name: "Crikket",
