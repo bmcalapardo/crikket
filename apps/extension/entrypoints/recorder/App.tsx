@@ -24,6 +24,7 @@ import { RecordingStep } from "@/components/recording-step"
 import { SuccessStep } from "@/components/success-step"
 import { useCaptureContext } from "@/hooks/use-capture-context"
 import { useCommandShortcuts } from "@/hooks/use-command-shortcuts"
+import { useObjectUrl } from "@/hooks/use-object-url"
 import { type CaptureType, useRecorderInit } from "@/hooks/use-recorder-init"
 import { useRecorderRecordingSync } from "@/hooks/use-recorder-recording-sync"
 import { useScreenCapture } from "@/hooks/use-screen-capture"
@@ -584,10 +585,7 @@ function App() {
   const suggestedTitle =
     captureContext.title?.trim() ||
     (captureType === "video" ? "Video bug report" : "Screenshot bug report")
-  const previewUrl = useMemo(() => {
-    if (!activeBlob) return null
-    return URL.createObjectURL(activeBlob)
-  }, [activeBlob])
+  const previewUrl = useObjectUrl(activeBlob)
 
   const error = captureError || submitError
 
