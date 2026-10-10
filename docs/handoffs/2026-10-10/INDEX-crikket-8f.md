@@ -1,0 +1,9 @@
+- (plan) — crikket-8f overall plan: stack layout for 12 unstarted issues, v030-int construction, conventions, open decisions — README-crikket-8f-plan.md
+- feature/full-page-capture — #17 pushed + hardened @ 1041a93; popup-close + #18 draft-store integration pending — feature__full-page-capture.md
+- feature/annotation-shapes-text — #14 pushed + hardened @ 309747e; next #15 stacks on it — feature__annotation-shapes-text.md
+- feature/trim-recording — #21 pushed + hardened @ a49c872; real playback unverified; next #22 — feature__trim-recording.md
+- feature/screenshot-draft-recovery — #18 pushed + hardened @ 23f5f99; alarms permission decision; next #19 — feature__screenshot-draft-recovery.md
+- feature/report-environment — #25 pushed @ b0232cf (unhardened, deliberately left as is; squashing in the hardening awaits user approval) — feature__report-environment.md
+- wip/report-environment-hardening — #25 hardening as one commit b955e3d on top of b0232cf, pushed, hook passed; squash into feature/report-environment once approved — feature__report-environment.md
+- feature/release-smoke-checks — #33 pushed @ 10314a0 (one commit on v030-int), hook passed; hardening not done — feature__release-smoke-checks.md
+- (assets) — crikket-8f agent briefs, setup-wt.sh, and the preserved #25/#33 WIP-NOTES — crikket-8f-assets/

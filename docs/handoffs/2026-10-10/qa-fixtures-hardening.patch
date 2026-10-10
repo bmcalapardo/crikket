@@ -1,0 +1,374 @@
+--- a/apps/qa-fixtures/.gitignore
++++ b/apps/qa-fixtures/.gitignore
+@@ -1,6 +1,6 @@
+-dist/
+-node_modules/
+-.vercel
+-.env*
+-!.env.example
+-*.tsbuildinfo
++dist/
++node_modules/
++.vercel
++.env*
++!.env.example
++*.tsbuildinfo
+--- a/apps/qa-fixtures/Dockerfile
++++ b/apps/qa-fixtures/Dockerfile
+@@ -3,6 +3,7 @@
+ WORKDIR /app
+ 
+ ENV NODE_ENV=production
++ENV HOST=0.0.0.0
+ 
+ COPY package.json bun.lock turbo.json tsconfig.json biome.jsonc ./
+ COPY apps ./apps
+--- a/apps/qa-fixtures/README.md
++++ b/apps/qa-fixtures/README.md
+@@ -1,58 +1,58 @@
+-# QA fixtures
+-
+-A deliberately broken site to point Crikket at. Testers use it by hand and automated E2E uses it for assertions. Every problem is deterministic: the same URL gives the same failure on every load.
+-
+-It is private, never published to npm or the extension stores, and not part of the SDK or extension builds.
+-
+-## Stack
+-
+-A tiny [Hono](https://hono.dev) app on Bun, with server-rendered HTML strings and no client framework or build tooling. Hono is already a repo dependency (`apps/server`) and runs unchanged on Bun, Docker and Vercel, and plain HTML keeps the page content (console output, requests, DOM) exactly what the tests say it is.
+-
+-## Run it
+-
+-```bash
+-bun run --filter qa-fixtures dev     # http://localhost:4100
+-PORT=5000 bun run --filter qa-fixtures start
+-bun run --filter qa-fixtures test
+-```
+-
+-## Scenarios
+-
+-| Page | What it does | Expected report evidence |
+-| --- | --- | --- |
+-| `/scenarios/working` | Counter button, no errors | Clean report (control) |
+-| `/scenarios/console-error` | One `console.error` on load | Exactly one console error: `[qa-fixtures] intentional console error: this is a known-bad page` |
+-| `/scenarios/network-500` | Fetches `/api/error` on load | A failed request, status 500 |
+-| `/scenarios/slow` | Fetches `/api/slow?ms=N` on load | A request taking about N ms. Default 3000, capped at 10000; bad values use the default |
+-| `/scenarios/broken-image` | `<img src="/assets/missing.png">` | A 404 request |
+-| `/scenarios/form-failure` | Submit the form | `POST /api/form` returns 422 and the error shows on the page |
+-| `/scenarios/long-page` | 20 sections of 600px | A 12000px content block (`#long-content`), for scroll-and-stitch |
+-| `/scenarios/sensitive` | Fake token, cookie and password | See below |
+-
+-The API routes can also be hit directly: `/api/error`, `/api/slow`, `/api/form` (POST), `/api/sensitive` (POST), `/assets/missing.png`, and `/healthz`.
+-
+-### Sensitive data
+-
+-The page sets the cookie `qa_session_token`, has a password field prefilled with a fake password, logs lines containing a fake token and password to the console, and POSTs to `/api/sensitive?api_key=...` with an `Authorization: Bearer` header and a password in the body. Open the resulting report: none of these values may appear:
+-
+-- `qa-fixture-fake-token-do-not-use`
+-- `qa-fixture-fake-session-do-not-use`
+-- `qa-fixture-fake-password-do-not-use`
+-- `qa-fixture-fake-apikey-do-not-use`
+-
+-The values are plainly fake and match no real provider token format. A test runs the fixture's traffic through the Redaction module (`@crikket/capture-core/debugger/redaction`) and fails if any survive. Redaction covers debugger data only, not screenshots, so the password field is still visible in a screenshot.
+-
+-## Deploy per channel
+-
+-Each Channel (Alpha, Beta, Stable) gets its own deployment so testers can point a build at the matching fixture site.
+-
+-**Vercel**: create one project per channel from this repo, with Root Directory `apps/qa-fixtures` (the included `vercel.json` handles install, build and routing), and assign a domain per channel, for example `qa-alpha.example.com`. No environment variables are needed. Deploy only when this app changes (Ignored Build Step, or leave on for every push; the app is tiny).
+-
+-**Docker**: build from the repo root and run on port 4100:
+-
+-```bash
+-docker build -f apps/qa-fixtures/Dockerfile -t crikket-qa-fixtures .
+-docker run --rm -p 4100:4100 crikket-qa-fixtures
+-```
+-
+-The image is not published by CI; build it where you need it.
++# QA fixtures
++
++A deliberately broken site to point Crikket at. Testers use it by hand and automated E2E uses it for assertions. Every problem is deterministic: the same URL gives the same failure on every load.
++
++It is private, never published to npm or the extension stores, and not part of the SDK or extension builds.
++
++## Stack
++
++A tiny [Hono](https://hono.dev) app on Bun, with server-rendered HTML strings and no client framework or build tooling. Hono is already a repo dependency (`apps/server`) and runs unchanged on Bun, Docker and Vercel, and plain HTML keeps the page content (console output, requests, DOM) exactly what the tests say it is.
++
++## Run it
++
++```bash
++bun run --filter qa-fixtures dev     # http://localhost:4100
++PORT=5000 bun run --filter qa-fixtures start
++bun run --filter qa-fixtures test
++```
++
++## Scenarios
++
++| Page | What it does | Expected report evidence |
++| --- | --- | --- |
++| `/scenarios/working` | Counter button, no errors | Clean report (control) |
++| `/scenarios/console-error` | One `console.error` on load | Exactly one console error: `[qa-fixtures] intentional console error: this is a known-bad page` |
++| `/scenarios/network-500` | Fetches `/api/error` on load | A failed request, status 500 |
++| `/scenarios/slow` | Fetches `/api/slow?ms=N` on load | A request taking about N ms. Default 3000, capped at 10000; bad values use the default |
++| `/scenarios/broken-image` | `<img src="/assets/missing.png">` | A 404 request |
++| `/scenarios/form-failure` | Submit the form | `POST /api/form` returns 422 and the error shows on the page |
++| `/scenarios/long-page` | 20 sections of 600px | A 12000px content block (`#long-content`), for scroll-and-stitch |
++| `/scenarios/sensitive` | Fake token, cookie and password | See below |
++
++The API routes can also be hit directly: `/api/error`, `/api/slow`, `/api/form` (POST), `/api/sensitive` (POST), `/assets/missing.png`, and `/healthz`.
++
++### Sensitive data
++
++The page sets the cookie `qa_session_token`, has a password field prefilled with a fake password, logs lines containing a fake token and password to the console, and POSTs to `/api/sensitive?api_key=...` with an `Authorization: Bearer` header and a password in the body. Open the resulting report: none of these values may appear:
++
++- `qa-fixture-fake-token-do-not-use`
++- `qa-fixture-fake-session-do-not-use`
++- `qa-fixture-fake-password-do-not-use`
++- `qa-fixture-fake-apikey-do-not-use`
++
++The values are plainly fake and match no real provider token format. A test runs the fixture's traffic through the Redaction module (`@crikket/capture-core/debugger/redaction`) and fails if any survive. Redaction covers debugger data only, not screenshots, so the password field is still visible in a screenshot.
++
++## Deploy per channel
++
++Each Channel (Alpha, Beta, Stable) gets its own deployment so testers can point a build at the matching fixture site.
++
++**Vercel**: create one project per channel from this repo, with Root Directory `apps/qa-fixtures` (the included `vercel.json` handles install, build and routing), and assign a domain per channel, for example `qa-alpha.example.com`. No environment variables are needed. Deploy only when this app changes (Ignored Build Step, or leave on for every push; the app is tiny).
++
++**Docker**: build from the repo root and run on port 4100:
++
++```bash
++docker build -f apps/qa-fixtures/Dockerfile -t crikket-qa-fixtures .
++docker run --rm -p 4100:4100 crikket-qa-fixtures
++```
++
++The image is not published by CI; build it where you need it.
+--- a/apps/qa-fixtures/api/index.ts
++++ b/apps/qa-fixtures/api/index.ts
+@@ -1,4 +1,4 @@
+-import { handle } from "hono/vercel"
+-import { createApp } from "../src/app"
+-
+-export default handle(createApp())
++import { handle } from "hono/vercel"
++import { createApp } from "../src/app"
++
++export default handle(createApp())
+--- a/apps/qa-fixtures/package.json
++++ b/apps/qa-fixtures/package.json
+@@ -1,22 +1,22 @@
+-{
+-  "name": "qa-fixtures",
+-  "version": "0.1.0",
+-  "private": true,
+-  "type": "module",
+-  "scripts": {
+-    "build": "bun build src/index.ts --target bun --outdir dist",
+-    "check-types": "tsc --noEmit -p tsconfig.json",
+-    "dev": "bun run --hot src/index.ts",
+-    "start": "bun run src/index.ts",
+-    "test": "bun test test"
+-  },
+-  "dependencies": {
+-    "hono": "catalog:"
+-  },
+-  "devDependencies": {
+-    "@crikket/capture-core": "workspace:*",
+-    "@crikket/config": "workspace:*",
+-    "@types/bun": "catalog:",
+-    "typescript": "catalog:"
+-  }
+-}
++{
++  "name": "qa-fixtures",
++  "version": "0.1.0",
++  "private": true,
++  "type": "module",
++  "scripts": {
++    "build": "bun build src/index.ts --target bun --outdir dist",
++    "check-types": "tsc --noEmit -p tsconfig.json",
++    "dev": "bun run --hot src/index.ts",
++    "start": "bun run src/index.ts",
++    "test": "bun test test"
++  },
++  "dependencies": {
++    "hono": "catalog:"
++  },
++  "devDependencies": {
++    "@crikket/capture-core": "workspace:*",
++    "@crikket/config": "workspace:*",
++    "@types/bun": "catalog:",
++    "typescript": "catalog:"
++  }
++}
+--- a/apps/qa-fixtures/src/app.ts
++++ b/apps/qa-fixtures/src/app.ts
+@@ -4,6 +4,7 @@
+   FAKE_COOKIE_VALUE,
+   FAKE_TOKEN,
+   FORM_FAILURE_BODY,
++  MAX_IN_FLIGHT_SLOW,
+   NETWORK_500_BODY,
+   parseSlowMs,
+ } from "./fixtures"
+@@ -22,6 +23,8 @@
+ export interface AppOptions {
+   // Injected so tests can assert the requested delay without waiting for it.
+   sleep?: (ms: number) => Promise<void>
++  // Cap on concurrent delayed /api/slow requests. Excess gets 503.
++  maxInFlightSlow?: number
+ }
+ 
+ const defaultSleep = (ms: number) =>
+@@ -29,12 +32,17 @@
+ 
+ export function createApp(options: AppOptions = {}) {
+   const sleep = options.sleep ?? defaultSleep
++  const maxInFlightSlow = options.maxInFlightSlow ?? MAX_IN_FLIGHT_SLOW
++  let inFlightSlow = 0
+   const app = new Hono()
+ 
+   // Never cache: every scenario must behave the same on every load.
+   app.use("*", async (c, next) => {
+     await next()
+     c.header("cache-control", "no-store")
++    c.header("x-content-type-options", "nosniff")
++    c.header("x-content-type-options", "nosniff")
++    c.header("x-content-type-options", "nosniff")
+   })
+ 
+   app.get("/", (c) => c.html(indexPage()))
+@@ -61,7 +69,17 @@
+ 
+   app.all("/api/slow", async (c) => {
+     const ms = parseSlowMs(c.req.query("ms"))
+-    await sleep(ms)
++    // Global cap so ?ms=10000 floods cannot pin unbounded sockets and timers.
++    if (inFlightSlow >= maxInFlightSlow) {
++      c.header("retry-after", "10")
++      return c.json({ error: "too-many-slow-requests" }, 503)
++    }
++    inFlightSlow += 1
++    try {
++      await sleep(ms)
++    } finally {
++      inFlightSlow -= 1
++    }
+     return c.json({ ok: true, delayedMs: ms })
+   })
+ 
+--- a/apps/qa-fixtures/src/fixtures.ts
++++ b/apps/qa-fixtures/src/fixtures.ts
+@@ -5,6 +5,9 @@
+ // A hostile or typo'd ?ms= must never hold a connection open for long.
+ export const MAX_SLOW_MS = 10_000
+ 
++// Global cap on concurrent delayed /api/slow requests.
++export const MAX_IN_FLIGHT_SLOW = 100
++
+ export const LONG_PAGE_SECTION_COUNT = 20
+ export const LONG_PAGE_SECTION_HEIGHT_PX = 600
+ export const LONG_PAGE_HEIGHT_PX =
+--- a/apps/qa-fixtures/src/index.ts
++++ b/apps/qa-fixtures/src/index.ts
+@@ -2,6 +2,9 @@
+ import { createApp } from "./app"
+ 
+ const port = Number(process.env.PORT) || 4100
++// Loopback by default so a local run is not reachable from the LAN; the
++// Dockerfile sets HOST=0.0.0.0 for container use.
++const hostname = process.env.HOST || "127.0.0.1"
+ 
+-serve({ port, fetch: createApp().fetch })
+-console.log(`[qa-fixtures] listening on http://localhost:${port}`)
++serve({ port, hostname, fetch: createApp().fetch })
++console.log(`[qa-fixtures] listening on http://${hostname}:${port}`)
+--- a/apps/qa-fixtures/test/scenarios.test.ts
++++ b/apps/qa-fixtures/test/scenarios.test.ts
+@@ -265,3 +265,45 @@
+     expect(LONG_PAGE_HEIGHT_PX).toBeGreaterThanOrEqual(10 * 1080)
+   })
+ })
++
++describe("hardening", () => {
++  test("sends nosniff on every response", async () => {
++    const app = createApp()
++    for (const path of ["/", "/scenarios/working", "/nope", "/api/error"]) {
++      const res = await app.request(path)
++      expect(res.headers.get("x-content-type-options")).toBe("nosniff")
++    }
++  })
++
++  test("caps concurrent delayed requests with 503 and releases slots", async () => {
++    const release: Array<() => void> = []
++    const app = createApp({
++      maxInFlightSlow: 2,
++      sleep: () => new Promise<void>((resolve) => release.push(resolve)),
++    })
++    const a = app.request("/api/slow?ms=10000")
++    const b = app.request("/api/slow?ms=10000")
++    await new Promise((resolve) => setTimeout(resolve, 10))
++    const c = await app.request("/api/slow?ms=10000")
++    expect(c.status).toBe(503)
++    expect((await app.request("/api/error")).status).toBe(500)
++    for (const r of release) r()
++    expect((await a).status).toBe(200)
++    expect((await b).status).toBe(200)
++    const d = app.request("/api/slow?ms=1")
++    await new Promise((resolve) => setTimeout(resolve, 10))
++    release.at(-1)?.()
++    expect((await d).status).toBe(200)
++  })
++
++  test("hostile query values are never reflected", async () => {
++    const app = createApp({ sleep: noSleep })
++    const evil = encodeURIComponent('<script>alert(1)</script>"\r\nX-Evil: 1')
++    for (const path of ["/scenarios/slow", "/api/slow", "/scenarios/working"]) {
++      const res = await app.request(`${path}?ms=${evil}&x=${evil}`)
++      const body = await res.text()
++      expect(body).not.toContain("<script>alert")
++      expect(res.headers.get("x-evil")).toBeNull()
++    }
++  })
++})
+--- a/apps/qa-fixtures/tsconfig.json
++++ b/apps/qa-fixtures/tsconfig.json
+@@ -1,8 +1,8 @@
+-{
+-  "extends": "@crikket/config/tsconfig.base.json",
+-  "compilerOptions": {
+-    "noEmit": true
+-  },
+-  "include": ["src", "test", "api"],
+-  "exclude": ["dist", "node_modules"]
+-}
++{
++  "extends": "@crikket/config/tsconfig.base.json",
++  "compilerOptions": {
++    "noEmit": true
++  },
++  "include": ["src", "test", "api"],
++  "exclude": ["dist", "node_modules"]
++}
+--- a/apps/qa-fixtures/vercel.json
++++ b/apps/qa-fixtures/vercel.json
+@@ -1,10 +1,10 @@
+-{
+-  "installCommand": "cd ../.. && bun install --frozen-lockfile",
+-  "buildCommand": "bun run build",
+-  "rewrites": [
+-    {
+-      "source": "/(.*)",
+-      "destination": "/api"
+-    }
+-  ]
+-}
++{
++  "installCommand": "cd ../.. && bun install --frozen-lockfile",
++  "buildCommand": "bun run build",
++  "rewrites": [
++    {
++      "source": "/(.*)",
++      "destination": "/api"
++    }
++  ]
++}
