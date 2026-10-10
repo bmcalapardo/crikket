@@ -27,6 +27,7 @@ import { type CaptureType, useRecorderInit } from "@/hooks/use-recorder-init"
 import { useRecorderRecordingSync } from "@/hooks/use-recorder-recording-sync"
 import { useScreenCapture } from "@/hooks/use-screen-capture"
 import { useTimer } from "@/hooks/use-timer"
+import { getLoginUrl, getShareUrl } from "@/lib/app-urls"
 import {
   discardDebuggerSession,
   getDebuggerSessionSnapshot,
@@ -490,15 +491,18 @@ function App() {
         )
       }
 
-      setResultUrl(`${env.VITE_APP_URL}${result.shareUrl}`)
+      setResultUrl(getShareUrl(env.VITE_APP_URL, result.shareUrl))
       setSubmissionWarnings(
         dedupeMessages([...warnings, ...(result.warnings ?? [])])
       )
       setState("success")
     } catch (error) {
       if (isUnauthorizedSubmissionError(error)) {
-        const loginUrl = new URL("/login", env.VITE_APP_URL).toString()
-        window.open(loginUrl, "_blank", "noopener,noreferrer")
+        window.open(
+          getLoginUrl(env.VITE_APP_URL),
+          "_blank",
+          "noopener,noreferrer"
+        )
       }
       setSubmitError(getSubmissionErrorMessage(error))
       setState("stopped")
