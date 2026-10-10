@@ -1,9 +1,12 @@
 import { describe, expect, it } from "bun:test"
 import {
+  type Annotation,
   addAnnotation,
   createAnnotationHistory,
   deleteAnnotation,
+  hitTest,
   type PenAnnotation,
+  type Point,
   redo,
   translateHistory,
   undo,
@@ -101,5 +104,52 @@ describe("repeated crop changes", () => {
     }
     expect(history.annotations.length + total).toBe(500)
     expect(history.annotations[0]?.points[0]?.x).toBeGreaterThanOrEqual(-2)
+  })
+})
+
+describe("history fuzz with every annotation kind", () => {
+  it("keeps ids unique and the undo/redo round trip exact", () => {
+    const kinds = ["pen", "line", "arrow", "rectangle", "ellipse", "text"]
+    for (const seed of [11, 12, 13]) {
+      const next = rng(seed)
+      let history = createAnnotationHistory()
+      let counter = 0
+      for (let step = 0; step < 400; step++) {
+        const roll = next()
+        if (roll < 0.4) {
+          const kind = kinds[Math.floor(next() * kinds.length)] as string
+          history = addAnnotation(history, {
+            id: `k${counter++}`,
+            kind,
+            color: "#f00",
+            width: 4,
+            points: [
+              { x: next() * 500, y: next() * 500 },
+              { x: next() * 500, y: next() * 500 },
+            ],
+            ...(kind === "text" ? { text: "t", fontSize: 12 } : {}),
+          } as Annotation)
+        } else if (roll < 0.6 && history.annotations.length > 0) {
+          const target = history.annotations[
+            Math.floor(next() * history.annotations.length)
+          ] as Annotation
+          const hit = hitTest(history.annotations, target.points[0] as Point, 6)
+          history = deleteAnnotation(history, (hit ?? target).id)
+        } else if (roll < 0.8) {
+          history = undo(history)
+        } else {
+          history = redo(history)
+        }
+        const ids = history.annotations.map((a) => a.id)
+        expect(new Set(ids).size).toBe(ids.length)
+      }
+      const snapshot = history.annotations.map((a) => a.id)
+      let h = history
+      const depth = h.undoStack.length
+      for (let i = 0; i < depth; i++) h = undo(h)
+      expect(h.annotations).toHaveLength(0)
+      for (let i = 0; i < depth; i++) h = redo(h)
+      expect(h.annotations.map((a) => a.id)).toEqual(snapshot)
+    }
   })
 })

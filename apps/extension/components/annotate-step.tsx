@@ -1,11 +1,22 @@
 import { Button } from "@crikket/ui/components/ui/button"
-import { Eraser, Pencil, Redo2, Undo2 } from "lucide-react"
-import { type ReactNode, useCallback, useState } from "react"
+import {
+  ArrowUpRight,
+  Circle,
+  Eraser,
+  Minus,
+  Pencil,
+  Redo2,
+  Square,
+  Type,
+  Undo2,
+} from "lucide-react"
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import {
   type AnnotationTool,
   useAnnotationEditor,
 } from "@/hooks/use-annotation-editor"
-import type { AnnotationHistory } from "@/lib/annotations"
+import { TOOL_KEYS } from "@/lib/annotation-shortcuts"
+import { type AnnotationHistory, MAX_TEXT_LENGTH } from "@/lib/annotations"
 
 interface AnnotateStepProps {
   // The image to draw on: the crop if there is one, else the Capture.
@@ -41,12 +52,93 @@ const TOOLS: Record<
     cursor: "cursor-pointer",
     icon: <Eraser />,
   },
+  line: {
+    label: "Line",
+    hint: "Drag to draw a straight line. Click an annotation to delete it.",
+    cursor: "cursor-crosshair",
+    icon: <Minus />,
+  },
+  arrow: {
+    label: "Arrow",
+    hint: "Drag from the tail to where the arrow should point. Click an annotation to delete it.",
+    cursor: "cursor-crosshair",
+    icon: <ArrowUpRight />,
+  },
+  rectangle: {
+    label: "Rectangle",
+    hint: "Drag to draw a rectangle. Click an annotation to delete it.",
+    cursor: "cursor-crosshair",
+    icon: <Square />,
+  },
+  ellipse: {
+    label: "Ellipse",
+    hint: "Drag to draw an ellipse. Click an annotation to delete it.",
+    cursor: "cursor-crosshair",
+    icon: <Circle />,
+  },
+  text: {
+    label: "Text",
+    hint: "Click where the text should go, type, then press Enter. Click a text annotation to delete it.",
+    cursor: "cursor-text",
+    icon: <Type />,
+  },
+}
+
+interface TextEntryProps {
+  // Position as percentages of the image, so it tracks the displayed size.
+  left: number
+  top: number
+  onCommit: (text: string) => void
+  onCancel: () => void
+}
+
+export function TextEntry({ left, top, onCommit, onCancel }: TextEntryProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  // Enter, Escape and blur can all fire for one entry (unmounting the focused
+  // input blurs it), so only the first one counts.
+  const settledRef = useRef(false)
+  const settle = (action: () => void) => {
+    if (settledRef.current) return
+    settledRef.current = true
+    action()
+  }
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+  return (
+    <input
+      aria-label="Annotation text"
+      className="absolute min-w-40 rounded border bg-background px-2 py-1 text-sm"
+      maxLength={MAX_TEXT_LENGTH}
+      onBlur={(event) => {
+        const { value } = event.currentTarget
+        settle(() => onCommit(value))
+      }}
+      onKeyDown={(event) => {
+        // Enter or Escape during IME composition belong to the IME.
+        if (event.nativeEvent.isComposing || event.key === "Process") return
+        if (event.key === "Enter") {
+          event.preventDefault()
+          const { value } = event.currentTarget
+          settle(() => onCommit(value))
+        } else if (event.key === "Escape") {
+          event.preventDefault()
+          event.stopPropagation()
+          settle(onCancel)
+        }
+      }}
+      ref={inputRef}
+      style={{ left: `${left}%`, top: `${top}%` }}
+      type="text"
+    />
+  )
 }
 
 interface IconButtonProps {
   label: string
   title?: string
   pressed?: boolean
+  shortcut?: string
   disabled: boolean
   onClick: () => void
   children: ReactNode
@@ -56,12 +148,14 @@ function IconButton({
   label,
   title,
   pressed,
+  shortcut,
   disabled,
   onClick,
   children,
 }: IconButtonProps) {
   return (
     <Button
+      aria-keyshortcuts={shortcut}
       aria-label={label}
       aria-pressed={pressed}
       disabled={disabled}
@@ -126,7 +220,11 @@ export function AnnotateStep({
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
+      <div
+        aria-label="Annotation tools"
+        className="flex flex-wrap gap-2"
+        role="toolbar"
+      >
         {(Object.keys(TOOLS) as AnnotationTool[]).map((tool) => (
           <IconButton
             disabled={isFinishing}
@@ -134,6 +232,8 @@ export function AnnotateStep({
             label={TOOLS[tool].label}
             onClick={() => editor.setTool(tool)}
             pressed={editor.tool === tool}
+            shortcut={TOOL_KEYS[tool].toUpperCase()}
+            title={`${TOOLS[tool].label} (${TOOL_KEYS[tool].toUpperCase()})`}
           >
             {TOOLS[tool].icon}
           </IconButton>
@@ -182,6 +282,14 @@ export function AnnotateStep({
           ref={editor.liveStrokeCanvasRef}
           role="img"
         />
+        {editor.pendingText && editor.naturalSize ? (
+          <TextEntry
+            left={(editor.pendingText.x / editor.naturalSize.width) * 100}
+            onCancel={editor.cancelText}
+            onCommit={editor.commitText}
+            top={(editor.pendingText.y / editor.naturalSize.height) * 100}
+          />
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-3">

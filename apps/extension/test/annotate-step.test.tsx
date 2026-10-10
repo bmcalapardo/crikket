@@ -52,9 +52,41 @@ const byLabel = (rendered: HTMLElement, label: string) =>
 describe("AnnotateStep", () => {
   it("gives every icon button an accessible name", () => {
     const rendered = renderStep()
-    for (const label of ["Pen", "Eraser", "Undo", "Redo"]) {
+    for (const label of [
+      "Pen",
+      "Eraser",
+      "Line",
+      "Arrow",
+      "Rectangle",
+      "Ellipse",
+      "Text",
+      "Undo",
+      "Redo",
+    ]) {
       expect(byLabel(rendered, label)).not.toBeNull()
     }
+  })
+
+  it("exposes the tools as a labelled toolbar of native buttons", () => {
+    const rendered = renderStep()
+    const toolbar = rendered.querySelector('[role="toolbar"]')
+    expect(toolbar?.getAttribute("aria-label")).toBe("Annotation tools")
+    for (const button of toolbar?.querySelectorAll("button") ?? []) {
+      expect(button.getAttribute("type")).toBe("button")
+    }
+    expect(byLabel(rendered, "Arrow")?.getAttribute("aria-keyshortcuts")).toBe(
+      "A"
+    )
+  })
+
+  it("selects a tool from its shortcut key", () => {
+    const rendered = renderStep()
+    flushSync(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }))
+    })
+    expect(byLabel(rendered, "Rectangle")?.getAttribute("aria-pressed")).toBe(
+      "true"
+    )
   })
 
   it("starts with nothing to undo or redo", () => {

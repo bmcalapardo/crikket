@@ -1,7 +1,13 @@
 // Canvas 2D rendering for the annotation model. Kept apart from the model so
 // the model stays testable without a canvas. Only the structural subset of the
 // 2D context that is used is required, which lets tests pass a recording fake.
-import type { Annotation, PenAnnotation, Point } from "@/lib/annotations"
+import {
+  type Annotation,
+  arrowHead,
+  type PenAnnotation,
+  type Point,
+  type TextAnnotation,
+} from "@/lib/annotations"
 
 export type DrawContext = Pick<
   CanvasRenderingContext2D,
@@ -14,7 +20,13 @@ export type DrawContext = Pick<
   | "save"
   | "restore"
   | "clearRect"
+  | "closePath"
+  | "ellipse"
+  | "fillText"
+  | "strokeText"
 > & {
+  font: string
+  textBaseline: CanvasTextBaseline
   strokeStyle: CanvasRenderingContext2D["strokeStyle"]
   fillStyle: CanvasRenderingContext2D["fillStyle"]
   lineWidth: number
@@ -66,10 +78,93 @@ export function drawPenIncrement(ctx: DrawContext, pen: Pen, points: Point[]) {
   drawPenPath(ctx, pen, points.slice(-2))
 }
 
+function drawLine(ctx: DrawContext, pen: Pen, from: Point, to: Point) {
+  applyPenStyle(ctx, pen)
+  ctx.beginPath()
+  ctx.moveTo(from.x, from.y)
+  ctx.lineTo(to.x, to.y)
+  ctx.stroke()
+  ctx.restore()
+}
+
+// A shaft plus two wings that meet at the tip, all round-capped.
+function drawArrow(ctx: DrawContext, pen: Pen, from: Point, to: Point) {
+  const [tip, left, right] = arrowHead(from, to, pen.width)
+  applyPenStyle(ctx, pen)
+  ctx.beginPath()
+  ctx.moveTo(from.x, from.y)
+  ctx.lineTo(tip.x, tip.y)
+  ctx.moveTo(left.x, left.y)
+  ctx.lineTo(tip.x, tip.y)
+  ctx.lineTo(right.x, right.y)
+  ctx.stroke()
+  ctx.restore()
+}
+
+function drawRectangle(ctx: DrawContext, pen: Pen, a: Point, b: Point) {
+  applyPenStyle(ctx, pen)
+  ctx.beginPath()
+  ctx.moveTo(a.x, a.y)
+  ctx.lineTo(b.x, a.y)
+  ctx.lineTo(b.x, b.y)
+  ctx.lineTo(a.x, b.y)
+  ctx.closePath()
+  ctx.stroke()
+  ctx.restore()
+}
+
+function drawEllipse(ctx: DrawContext, pen: Pen, a: Point, b: Point) {
+  applyPenStyle(ctx, pen)
+  ctx.beginPath()
+  ctx.ellipse(
+    (a.x + b.x) / 2,
+    (a.y + b.y) / 2,
+    Math.abs(b.x - a.x) / 2,
+    Math.abs(b.y - a.y) / 2,
+    0,
+    0,
+    Math.PI * 2
+  )
+  ctx.stroke()
+  ctx.restore()
+}
+
+// A light halo behind the fill keeps the text legible on any screenshot.
+function drawText(ctx: DrawContext, annotation: TextAnnotation) {
+  const origin = annotation.points[0]
+  if (!(origin && annotation.text)) return
+  ctx.save()
+  ctx.font = `bold ${annotation.fontSize}px sans-serif`
+  ctx.textBaseline = "top"
+  ctx.lineJoin = "round"
+  ctx.lineWidth = annotation.width
+  ctx.strokeStyle = "#ffffff"
+  ctx.strokeText(annotation.text, origin.x, origin.y)
+  ctx.fillStyle = annotation.color
+  ctx.fillText(annotation.text, origin.x, origin.y)
+  ctx.restore()
+}
+
 export function drawAnnotation(ctx: DrawContext, annotation: Annotation) {
+  const [a, b] = annotation.points
   switch (annotation.kind) {
     case "pen":
       drawPenPath(ctx, annotation, annotation.points)
+      break
+    case "line":
+      if (a && b) drawLine(ctx, annotation, a, b)
+      break
+    case "arrow":
+      if (a && b) drawArrow(ctx, annotation, a, b)
+      break
+    case "rectangle":
+      if (a && b) drawRectangle(ctx, annotation, a, b)
+      break
+    case "ellipse":
+      if (a && b) drawEllipse(ctx, annotation, a, b)
+      break
+    case "text":
+      drawText(ctx, annotation)
       break
     default:
       break

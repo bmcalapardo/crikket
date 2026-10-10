@@ -8,26 +8,30 @@ import {
 } from "react"
 import { useAnnotationShortcuts } from "@/hooks/use-annotation-shortcuts"
 import {
+  drawAnnotation,
   drawPenIncrement,
   renderAnnotatedBlob,
   syncCommittedAnnotations,
 } from "@/lib/annotation-render"
+import type { AnnotationTool } from "@/lib/annotation-shortcuts"
 import {
   type Annotation,
   type AnnotationHistory,
-  commitPenStroke,
+  commitAnnotation,
   createAnnotationHistory,
+  defaultFontSize,
   defaultPenWidth,
   deleteAnnotation,
   displayPointToNative,
   hitTest,
+  normalizeAnnotationText,
   type Point,
   redo as redoHistory,
   undo as undoHistory,
 } from "@/lib/annotations"
 import type { Size } from "@/lib/screenshot-crop"
 
-export type AnnotationTool = "pen" | "eraser"
+export type { AnnotationTool } from "@/lib/annotation-shortcuts"
 
 const PEN_COLOR = "#ef4444"
 
@@ -40,6 +44,7 @@ const ERASER_TOLERANCE_CSS_PIXELS = 8
 const CLICK_MOVE_THRESHOLD_CSS_PIXELS = 4
 
 interface LiveStroke {
+  tool: Exclude<AnnotationTool, "eraser" | "text">
   pointerId: number
   width: number
   points: Point[]
@@ -51,6 +56,8 @@ export interface UseAnnotationEditorReturn {
   imageUrl: string | null
   history: AnnotationHistory
   tool: AnnotationTool
+  // Where a text annotation is being typed (native pixels), or null.
+  pendingText: Point | null
   canUndo: boolean
   canRedo: boolean
   imgRef: RefObject<HTMLImageElement | null>
@@ -58,6 +65,8 @@ export interface UseAnnotationEditorReturn {
   liveStrokeCanvasRef: RefObject<HTMLCanvasElement | null>
   naturalSize: Size | null
   setTool: (tool: AnnotationTool) => void
+  commitText: (text: string) => void
+  cancelText: () => void
   handleImageLoad: () => void
   handlePointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void
   handlePointerMove: (event: ReactPointerEvent<HTMLCanvasElement>) => void
@@ -136,7 +145,16 @@ export function useAnnotationEditor(
   const [history, setHistory] = useState<AnnotationHistory>(
     () => initialHistory ?? createAnnotationHistory()
   )
-  const [tool, setTool] = useState<AnnotationTool>("pen")
+  const [tool, setToolState] = useState<AnnotationTool>("pen")
+  const [pendingText, setPendingTextState] = useState<Point | null>(null)
+  // Mirrors pendingText synchronously, so a second commit for the same
+  // entry (Enter followed by the blur from unmounting) is a no-op even when
+  // it runs before React has re-rendered.
+  const pendingTextRef = useRef<Point | null>(null)
+  const setPendingText = useCallback((next: Point | null) => {
+    pendingTextRef.current = next
+    setPendingTextState(next)
+  }, [])
 
   const imgRef = useRef<HTMLImageElement | null>(null)
   const committedCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -233,15 +251,66 @@ export function useAnnotationEditor(
     [naturalSize]
   )
 
+  // A pen stroke draws only its newest piece; a shape is redrawn whole each
+  // move, which is cheap because it is only ever two points.
   const drawLiveIncrement = useCallback((stroke: LiveStroke) => {
-    const ctx = liveStrokeCanvasRef.current?.getContext("2d")
-    if (!ctx) return
-    drawPenIncrement(
-      ctx,
-      { color: PEN_COLOR, width: stroke.width },
-      stroke.points
-    )
+    const canvas = liveStrokeCanvasRef.current
+    const ctx = canvas?.getContext("2d")
+    if (!(canvas && ctx)) return
+    if (stroke.tool === "pen") {
+      drawPenIncrement(
+        ctx,
+        { color: PEN_COLOR, width: stroke.width },
+        stroke.points
+      )
+      return
+    }
+    clearCanvas(canvas)
+    drawAnnotation(ctx, {
+      id: "live",
+      kind: stroke.tool,
+      color: PEN_COLOR,
+      width: stroke.width,
+      points: stroke.points,
+    } as Annotation)
   }, [])
+
+  const setTool = useCallback(
+    (next: AnnotationTool) => {
+      if (liveStrokeRef.current) return
+      setPendingText(null)
+      setToolState(next)
+    },
+    [setPendingText]
+  )
+
+  const commitText = useCallback(
+    (text: string) => {
+      const at = pendingTextRef.current
+      setPendingText(null)
+      const trimmed = normalizeAnnotationText(text)
+      if (!(at && trimmed && naturalSize)) return
+      const fontSize = defaultFontSize(naturalSize)
+      setHistory((current) =>
+        commitAnnotation(
+          current,
+          {
+            id: crypto.randomUUID(),
+            kind: "text",
+            color: PEN_COLOR,
+            width: Math.max(2, Math.round(fontSize / 5)),
+            fontSize,
+            text: trimmed,
+            points: [at],
+          },
+          { isClick: false, tolerance: 0 }
+        )
+      )
+    },
+    [naturalSize, setPendingText]
+  )
+
+  const cancelText = useCallback(() => setPendingText(null), [setPendingText])
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -258,8 +327,19 @@ export function useAnnotationEditor(
         return
       }
 
+      if (tool === "text") {
+        const hit = hitTest(history.annotations, point, hitTolerance(event))
+        if (hit) {
+          setHistory((current) => deleteAnnotation(current, hit.id))
+        } else {
+          setPendingText(point)
+        }
+        return
+      }
+
       capturePointer(event)
       const stroke: LiveStroke = {
+        tool: tool as LiveStroke["tool"],
         pointerId: event.pointerId,
         width: defaultPenWidth(naturalSize),
         points: [point],
@@ -269,7 +349,15 @@ export function useAnnotationEditor(
       liveStrokeRef.current = stroke
       drawLiveIncrement(stroke)
     },
-    [drawLiveIncrement, hitTolerance, naturalSize, toNative, tool]
+    [
+      drawLiveIncrement,
+      history.annotations,
+      hitTolerance,
+      naturalSize,
+      setPendingText,
+      toNative,
+      tool,
+    ]
   )
 
   const handlePointerMove = useCallback(
@@ -287,7 +375,11 @@ export function useAnnotationEditor(
       ) {
         stroke.moved = true
       }
-      stroke.points.push(point)
+      if (stroke.tool === "pen") {
+        stroke.points.push(point)
+      } else {
+        stroke.points = [stroke.points[0] as Point, point]
+      }
       drawLiveIncrement(stroke)
     },
     [drawLiveIncrement, toNative]
@@ -311,15 +403,15 @@ export function useAnnotationEditor(
       if (!stroke) return
       const tolerance = hitTolerance(event)
       setHistory((current) =>
-        commitPenStroke(
+        commitAnnotation(
           current,
           {
             id: crypto.randomUUID(),
-            kind: "pen",
+            kind: stroke.tool,
             color: PEN_COLOR,
             width: stroke.width,
             points: stroke.points,
-          },
+          } as Annotation,
           { isClick: !stroke.moved, tolerance }
         )
       )
@@ -355,12 +447,13 @@ export function useAnnotationEditor(
     if (!liveStrokeRef.current) setHistory(redoHistory)
   }, [])
 
-  useAnnotationShortcuts({ undo, redo })
+  useAnnotationShortcuts({ undo, redo, selectTool: setTool })
 
   return {
     imageUrl,
     history,
     tool,
+    pendingText,
     canUndo: history.undoStack.length > 0,
     canRedo: history.redoStack.length > 0,
     imgRef,
@@ -368,6 +461,8 @@ export function useAnnotationEditor(
     liveStrokeCanvasRef,
     naturalSize,
     setTool,
+    commitText,
+    cancelText,
     handleImageLoad,
     handlePointerDown,
     handlePointerMove,
