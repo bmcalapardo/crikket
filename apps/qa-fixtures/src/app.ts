@@ -4,6 +4,7 @@ import {
   FAKE_COOKIE_VALUE,
   FAKE_TOKEN,
   FORM_FAILURE_BODY,
+  MAX_IN_FLIGHT_SLOW,
   NETWORK_500_BODY,
   parseSlowMs,
 } from "./fixtures"
@@ -22,6 +23,8 @@ import {
 export interface AppOptions {
   // Injected so tests can assert the requested delay without waiting for it.
   sleep?: (ms: number) => Promise<void>
+  // Cap on concurrent delayed /api/slow requests. Excess gets 503.
+  maxInFlightSlow?: number
 }
 
 const defaultSleep = (ms: number) =>
@@ -29,12 +32,17 @@ const defaultSleep = (ms: number) =>
 
 export function createApp(options: AppOptions = {}) {
   const sleep = options.sleep ?? defaultSleep
+  const maxInFlightSlow = options.maxInFlightSlow ?? MAX_IN_FLIGHT_SLOW
+  let inFlightSlow = 0
   const app = new Hono()
 
   // Never cache: every scenario must behave the same on every load.
   app.use("*", async (c, next) => {
     await next()
     c.header("cache-control", "no-store")
+    c.header("x-content-type-options", "nosniff")
+    c.header("x-content-type-options", "nosniff")
+    c.header("x-content-type-options", "nosniff")
   })
 
   app.get("/", (c) => c.html(indexPage()))
@@ -61,7 +69,17 @@ export function createApp(options: AppOptions = {}) {
 
   app.all("/api/slow", async (c) => {
     const ms = parseSlowMs(c.req.query("ms"))
-    await sleep(ms)
+    // Global cap so ?ms=10000 floods cannot pin unbounded sockets and timers.
+    if (inFlightSlow >= maxInFlightSlow) {
+      c.header("retry-after", "10")
+      return c.json({ error: "too-many-slow-requests" }, 503)
+    }
+    inFlightSlow += 1
+    try {
+      await sleep(ms)
+    } finally {
+      inFlightSlow -= 1
+    }
     return c.json({ ok: true, delayedMs: ms })
   })
 

@@ -265,3 +265,45 @@ describe("long page", () => {
     expect(LONG_PAGE_HEIGHT_PX).toBeGreaterThanOrEqual(10 * 1080)
   })
 })
+
+describe("hardening", () => {
+  test("sends nosniff on every response", async () => {
+    const app = createApp()
+    for (const path of ["/", "/scenarios/working", "/nope", "/api/error"]) {
+      const res = await app.request(path)
+      expect(res.headers.get("x-content-type-options")).toBe("nosniff")
+    }
+  })
+
+  test("caps concurrent delayed requests with 503 and releases slots", async () => {
+    const release: Array<() => void> = []
+    const app = createApp({
+      maxInFlightSlow: 2,
+      sleep: () => new Promise<void>((resolve) => release.push(resolve)),
+    })
+    const a = app.request("/api/slow?ms=10000")
+    const b = app.request("/api/slow?ms=10000")
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    const c = await app.request("/api/slow?ms=10000")
+    expect(c.status).toBe(503)
+    expect((await app.request("/api/error")).status).toBe(500)
+    for (const r of release) r()
+    expect((await a).status).toBe(200)
+    expect((await b).status).toBe(200)
+    const d = app.request("/api/slow?ms=1")
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    release.at(-1)?.()
+    expect((await d).status).toBe(200)
+  })
+
+  test("hostile query values are never reflected", async () => {
+    const app = createApp({ sleep: noSleep })
+    const evil = encodeURIComponent('<script>alert(1)</script>"\r\nX-Evil: 1')
+    for (const path of ["/scenarios/slow", "/api/slow", "/scenarios/working"]) {
+      const res = await app.request(`${path}?ms=${evil}&x=${evil}`)
+      const body = await res.text()
+      expect(body).not.toContain("<script>alert")
+      expect(res.headers.get("x-evil")).toBeNull()
+    }
+  })
+})

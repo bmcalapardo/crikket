@@ -5,6 +5,9 @@ export const DEFAULT_SLOW_MS = 3000
 // A hostile or typo'd ?ms= must never hold a connection open for long.
 export const MAX_SLOW_MS = 10_000
 
+// Global cap on concurrent delayed /api/slow requests.
+export const MAX_IN_FLIGHT_SLOW = 100
+
 export const LONG_PAGE_SECTION_COUNT = 20
 export const LONG_PAGE_SECTION_HEIGHT_PX = 600
 export const LONG_PAGE_HEIGHT_PX =
