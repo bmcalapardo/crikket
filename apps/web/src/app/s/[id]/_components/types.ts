@@ -25,19 +25,9 @@ export interface DebuggerTimelineEntry {
   offset: number | null
 }
 
-// Mirrors environmentInputSchema; read defensively, since it is optional and
-// versioned.
-export interface ReportEnvironment {
-  schemaVersion?: number
-  extensionVersion?: string
-  buildSha?: string
-  browser?: { name?: string; version?: string }
-  os?: string
-  viewport?: { width?: number; height?: number }
-  devicePixelRatio?: number
-  capture?: { type?: string; durationMs?: number }
-  page?: { url?: string; title?: string }
-}
+// Inferred from the server's schema, so it cannot drift. Still read defensively
+// (see describeEnvironment): the stored value may be absent or newer.
+export type ReportEnvironment = NonNullable<SharedBugReport["environment"]>
 
 export interface DeviceInfo {
   browser?: string

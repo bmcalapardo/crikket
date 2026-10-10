@@ -6,6 +6,7 @@
     "dev": "next dev --port 3001",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "build": "next build",
+    "test": "bun test test",
     "start": "next start"
   },
   "dependencies": {

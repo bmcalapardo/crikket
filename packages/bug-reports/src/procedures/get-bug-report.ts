@@ -6,6 +6,7 @@ import {
 } from "@crikket/shared/constants/priorities"
 import { ORPCError } from "@orpc/server"
 import { eq } from "drizzle-orm"
+import type { StoredReportEnvironment } from "../lib/report-payload-schema"
 import { resolveCaptureUrl } from "../lib/storage"
 import {
   assertBugReportAccessById,
@@ -76,7 +77,7 @@ export const getBugReportById = o
       visibility,
       canEdit,
       deviceInfo: report.deviceInfo,
-      environment: report.environment,
+      environment: report.environment as StoredReportEnvironment | null,
       metadata: report.metadata,
       createdAt: report.createdAt.toISOString(),
       updatedAt: report.updatedAt.toISOString(),

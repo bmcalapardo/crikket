@@ -132,3 +132,104 @@ describe("environment schema", () => {
     ).toBeFalse()
   })
 })
+
+describe("environment schema hardening", () => {
+  const valid = {
+    schemaVersion: 1,
+    extensionVersion: "0.1.4",
+    buildSha: "abc123",
+    browser: { name: "Chrome", version: "126.0.0.0" },
+    os: "Windows",
+    viewport: { width: 1280, height: 720 },
+    devicePixelRatio: 2,
+    capture: { type: "video", durationMs: 1500 },
+  }
+  const parse = (patch: Record<string, unknown>) =>
+    environmentInputSchema.safeParse({ ...valid, ...patch })
+
+  it("rejects non-finite, negative, fractional and out-of-range numbers", () => {
+    for (const bad of [
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      -1,
+      1.5,
+      1e9,
+    ]) {
+      expect(parse({ viewport: { width: bad, height: 1 } }).success).toBeFalse()
+    }
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, 0, -2, 101, "2"]) {
+      expect(parse({ devicePixelRatio: bad }).success).toBeFalse()
+    }
+    for (const bad of [Number.NaN, -1, 1.5, 24 * 60 * 60 * 1000 + 1, null]) {
+      expect(
+        parse({ capture: { type: "video", durationMs: bad } }).success
+      ).toBeFalse()
+    }
+  })
+
+  it("rejects megabyte strings anywhere", () => {
+    const huge = "a".repeat(1_000_000)
+    expect(parse({ extensionVersion: huge }).success).toBeFalse()
+    expect(parse({ buildSha: huge }).success).toBeFalse()
+    expect(parse({ os: huge }).success).toBeFalse()
+    expect(parse({ browser: { name: huge } }).success).toBeFalse()
+    expect(parse({ page: { title: huge } }).success).toBeFalse()
+    expect(parse({ page: { url: huge } }).success).toBeFalse()
+  })
+
+  it("rejects wrong types, arrays and prototype-pollution keys", () => {
+    expect(parse({ browser: "Chrome" }).success).toBeFalse()
+    expect(parse({ viewport: [1, 2] }).success).toBeFalse()
+    expect(parse({ page: null }).success).toBeFalse()
+    const polluted = JSON.parse(
+      '{"schemaVersion":1,"__proto__":{"x":1},"extensionVersion":"1","buildSha":"a","browser":{"name":"C"},"viewport":{"width":1,"height":1},"devicePixelRatio":1,"capture":{"type":"video","durationMs":0}}'
+    )
+    expect(environmentInputSchema.safeParse(polluted).success).toBeFalse()
+    expect(({} as Record<string, unknown>).x).toBeUndefined()
+  })
+
+  it("redacts tokens in the page URL and title on the server", () => {
+    const result = environmentInputSchema.parse({
+      ...valid,
+      page: {
+        url: "https://a.example/cb?access_token=SECRETVALUE&x=1#id_token=OTHERSECRET",
+        title: "password=hunter2 dashboard",
+      },
+    })
+    expect(JSON.stringify(result)).not.toContain("SECRETVALUE")
+    expect(JSON.stringify(result)).not.toContain("OTHERSECRET")
+    expect(JSON.stringify(result)).not.toContain("hunter2")
+    expect(result?.page?.url).toContain("x=1")
+  })
+
+  it("redaction is idempotent for an already-redacted URL", () => {
+    const once = environmentInputSchema.parse({
+      ...valid,
+      page: { url: "https://a.example/?token=abc" },
+    })
+    const twice = environmentInputSchema.parse(once)
+    expect(twice).toEqual(once)
+  })
+
+  it("strips control characters, NUL included, instead of failing", () => {
+    const result = environmentInputSchema.parse({
+      ...valid,
+      page: { title: "a\u0000b\u0007c‮d" },
+    })
+    expect(result?.page?.title?.includes("\u0000")).toBeFalse()
+    expect(result?.page?.title?.startsWith("abc")).toBeTrue()
+  })
+
+  it("keeps markup as inert text for the renderer to escape", () => {
+    const title = '<script>alert(1)</script><img src=x onerror="y">'
+    expect(
+      environmentInputSchema.parse({ ...valid, page: { title } })?.page?.title
+    ).toBe(title)
+  })
+
+  it("a schemaVersion from the future is rejected, not silently stored", () => {
+    expect(parse({ schemaVersion: 2 }).success).toBeFalse()
+    expect(parse({ schemaVersion: "1" }).success).toBeFalse()
+  })
+})
