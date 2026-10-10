@@ -60,13 +60,18 @@ export function CropStep({
 }: CropStepProps) {
   const crop = useScreenshotCrop(imageBlob)
   const [isApplying, setIsApplying] = useState(false)
+  const [applyFailed, setApplyFailed] = useState(false)
 
   const handleApply = useCallback(async () => {
     setIsApplying(true)
+    setApplyFailed(false)
     try {
       const result = await crop.applyCrop()
       if (result) {
         onApply(result.blob, result.rect)
+      } else {
+        // No canvas, or toBlob returned null (e.g. over the canvas area limit).
+        setApplyFailed(true)
       }
     } finally {
       setIsApplying(false)
@@ -104,6 +109,13 @@ export function CropStep({
           ? "A crop is applied. Select a new region, keep the current crop, or reset to the original screenshot."
           : "Drag on the screenshot to crop it to the relevant area, or continue without cropping."}
       </p>
+
+      {applyFailed ? (
+        <p className="text-destructive text-sm" role="alert">
+          The screenshot couldn't be cropped. Try a smaller region, or skip the
+          crop.
+        </p>
+      ) : null}
 
       <div
         className="relative touch-none select-none overflow-hidden rounded-xl border bg-black shadow-sm"

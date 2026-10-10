@@ -116,3 +116,53 @@ describe("CropStep", () => {
     expect(onResetEdit).toHaveBeenCalledTimes(1)
   })
 })
+
+describe("CropStep Apply failure", () => {
+  it("tells the tester when the crop can't be rendered, instead of doing nothing", async () => {
+    const onApply = mock(() => undefined)
+    const rendered = renderCropStep(onApply)
+    await waitFor(
+      () => rendered.querySelector("img") !== null,
+      "the screenshot to render"
+    )
+    const img = rendered.querySelector("img") as HTMLImageElement
+    Object.defineProperty(img, "naturalWidth", { value: 400 })
+    Object.defineProperty(img, "naturalHeight", { value: 300 })
+    const box = {
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 150,
+      width: 200,
+      height: 150,
+      toJSON: () => ({}),
+    }
+    img.getBoundingClientRect = () => box
+    flushSync(() => {
+      img.dispatchEvent(new Event("load"))
+    })
+    const find = (label: string) =>
+      [...rendered.querySelectorAll("button")].find(
+        (b) => b.textContent === label
+      )
+    flushSync(() => {
+      find("Select Region")?.click()
+    })
+    const apply = find("Apply Crop")
+    expect(apply?.hasAttribute("disabled")).toBe(false)
+
+    // happy-dom has no canvas, so rendering the crop fails like a null toBlob.
+    apply?.click()
+    await waitFor(
+      () => rendered.querySelector('[role="alert"]') !== null,
+      "the crop failure message"
+    )
+
+    expect(onApply).not.toHaveBeenCalled()
+    expect(rendered.querySelector('[role="alert"]')?.textContent).toContain(
+      "couldn't be cropped"
+    )
+  })
+})
