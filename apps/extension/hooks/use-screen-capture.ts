@@ -101,6 +101,12 @@ export function useScreenCapture(): UseScreenCaptureReturn {
       setIsRecording(true)
       return true
     } catch (err) {
+      // A stream obtained before MediaRecorder/start failed would otherwise
+      // keep the "sharing this tab" indicator alive.
+      controllerRef.current?.dispose()
+      controllerRef.current = null
+      stopTracks(streamRef.current)
+      streamRef.current = null
       const message =
         err instanceof Error ? err.message : "Failed to start recording"
       setError(message)
