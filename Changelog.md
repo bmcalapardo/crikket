@@ -33,3 +33,4 @@
 
 ### v0.3.0
 - [BC] feat(extension): add a diagnostics page that reports named checks and exports a redacted bundle (#24)
+- [BC] feat(extension): pause and resume a recording, billing only playable length (#20)

@@ -7,6 +7,8 @@ export const RECORDER_TAB_ID_STORAGE_KEY = "recorderTabId"
 export const RECORDING_COUNTDOWN_ENDS_AT_STORAGE_KEY =
   "recordingCountdownEndsAt"
 export const RECORDING_STARTED_AT_STORAGE_KEY = "recordingStartedAt"
+// Playable length frozen at the moment of a pause. Present only while paused.
+export const RECORDING_PAUSED_MS_STORAGE_KEY = "recordingPausedMs"
 export const HOTKEY_START_VIDEO_CAPTURE_STORAGE_KEY = "hotkeyStartVideoCapture"
 export const HOTKEY_START_SCREENSHOT_CAPTURE_STORAGE_KEY =
   "hotkeyStartScreenshotCapture"

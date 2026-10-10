@@ -24,6 +24,7 @@ function App() {
   } = usePopupCapture()
   const {
     isRecordingInProgress,
+    isRecordingPaused,
     recordingCountdown: syncedRecordingCountdown,
     recordingDurationMs,
     isStoppingFromPopup,
@@ -71,6 +72,7 @@ function App() {
         <PopupCaptureActions
           isBusy={isBusy}
           isRecordingInProgress={isRecordingInProgress}
+          isRecordingPaused={isRecordingPaused}
           onClearPendingCapture={clearPendingCapture}
           onRequestCapture={requestCapture}
           onStartCapture={startCapture}

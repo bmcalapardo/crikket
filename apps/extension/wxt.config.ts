@@ -41,6 +41,11 @@ export default defineConfig({
           mac: "Alt+Shift+S",
         },
       },
+      // No suggested_key: all four slots are taken. Testers can bind one at
+      // chrome://extensions/shortcuts.
+      "toggle-pause-recording": {
+        description: "Pause or resume video recording",
+      },
     },
     permissions: ["activeTab", "scripting", "storage", "tabCapture", "tabs"],
     host_permissions: ["<all_urls>"],
