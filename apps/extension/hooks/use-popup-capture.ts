@@ -16,8 +16,13 @@ import {
   RECORDING_STARTED_AT_STORAGE_KEY,
 } from "@/lib/capture-context"
 import { recordCaptureSuccess } from "@/lib/diagnostics/last-capture"
+import {
+  captureFullPageSlices,
+  createTabCaptureDeps,
+  stitchSlices,
+} from "@/lib/full-page-capture"
 
-export type PopupCaptureType = "video" | "screenshot"
+export type PopupCaptureType = "video" | "screenshot" | "full-page"
 
 const RECORDING_COUNTDOWN_SECONDS = 3
 const ACTIVE_TAB_ERROR_MESSAGE =
@@ -71,11 +76,12 @@ export function usePopupCapture(): UsePopupCaptureReturn {
         activeTab.id
       )
 
-      if (captureType === "screenshot") {
+      if (captureType === "screenshot" || captureType === "full-page") {
         await startScreenshotCapture({
           activeTab,
           captureContext,
           debuggerSessionId,
+          fullPage: captureType === "full-page",
         })
       } else {
         await startVideoCapture({
@@ -136,8 +142,8 @@ async function initializeDebuggerSession(
 ): Promise<string> {
   const session = await startDebuggerSession({
     captureTabId,
-    captureType,
-    instantReplayLookbackMs: captureType === "screenshot" ? 10_000 : undefined,
+    captureType: captureType === "video" ? "video" : "screenshot",
+    instantReplayLookbackMs: captureType === "video" ? undefined : 10_000,
   })
 
   return session.sessionId
@@ -147,17 +153,25 @@ async function startScreenshotCapture(input: {
   activeTab: ActiveCaptureTab
   captureContext: CaptureContext
   debuggerSessionId: string
+  fullPage: boolean
 }): Promise<void> {
   if (input.activeTab.windowId === null) {
     throw new Error(ACTIVE_TAB_ERROR_MESSAGE)
   }
 
-  const base64data = await chrome.tabs.captureVisibleTab(
-    input.activeTab.windowId,
-    {
+  let truncated = false
+  let base64data: string
+  if (input.fullPage) {
+    const result = await captureFullPageSlices(
+      createTabCaptureDeps(input.activeTab.id, input.activeTab.windowId)
+    )
+    truncated = result.plan.truncated
+    base64data = await stitchSlices(result)
+  } else {
+    base64data = await chrome.tabs.captureVisibleTab(input.activeTab.windowId, {
       format: "png",
-    }
-  )
+    })
+  }
 
   await chrome.storage.local.set({
     [CAPTURE_CONTEXT_STORAGE_KEY]: input.captureContext,
@@ -166,7 +180,9 @@ async function startScreenshotCapture(input: {
   await recordCaptureSuccess("screenshot")
 
   const recorderUrl = appendDebuggerSessionIdToUrl(
-    chrome.runtime.getURL("/recorder.html?captureType=screenshot"),
+    chrome.runtime.getURL(
+      `/recorder.html?captureType=screenshot${truncated ? "&notice=truncated" : ""}`
+    ),
     input.debuggerSessionId
   )
 

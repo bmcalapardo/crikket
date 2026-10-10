@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { TRUNCATED_NOTICE } from "@/lib/full-page-capture"
 
 export type CaptureType = "video" | "screenshot"
 
@@ -7,6 +8,7 @@ interface UseRecorderInitProps {
   onScreenshotLoaded: (blob: Blob) => void
   onStartRecording: () => void
   onError: (error: string) => void
+  onNotice?: (notice: string) => void
 }
 
 export function useRecorderInit({
@@ -14,13 +16,19 @@ export function useRecorderInit({
   onScreenshotLoaded,
   onStartRecording,
   onError,
+  onNotice,
 }: UseRecorderInitProps) {
   const autoStartChecked = useRef(false)
+  const noticeShown = useRef(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const type = (params.get("captureType") as CaptureType) || "video"
     onCaptureTypeChange(type)
+    if (params.get("notice") === "truncated" && !noticeShown.current) {
+      noticeShown.current = true
+      onNotice?.(TRUNCATED_NOTICE)
+    }
 
     if (type === "screenshot") {
       chrome.storage.local.get(["pendingScreenshot"], (result) => {
@@ -48,5 +56,11 @@ export function useRecorderInit({
         }
       })
     }
-  }, [onCaptureTypeChange, onScreenshotLoaded, onStartRecording, onError])
+  }, [
+    onCaptureTypeChange,
+    onScreenshotLoaded,
+    onStartRecording,
+    onError,
+    onNotice,
+  ])
 }

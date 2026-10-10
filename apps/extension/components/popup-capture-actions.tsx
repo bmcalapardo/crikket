@@ -1,5 +1,5 @@
 import { Button } from "@crikket/ui/components/ui/button"
-import { Camera, Video } from "lucide-react"
+import { Camera, ScrollText, Video } from "lucide-react"
 import { ShortcutKbd } from "@/components/shortcut-kbd"
 import type { PopupCaptureType } from "@/hooks/use-popup-capture"
 import { formatDuration } from "@/lib/utils"
@@ -101,6 +101,17 @@ export function PopupCaptureActions({
               className="bg-muted text-foreground"
               shortcut={startScreenshotShortcut}
             />
+          </Button>
+
+          <Button
+            className="w-full justify-start gap-3"
+            disabled={isBusy}
+            onClick={() => onRequestCapture("full-page")}
+            size="lg"
+            variant="outline"
+          >
+            <ScrollText className="h-5 w-5" />
+            <span>Capture Full Page</span>
           </Button>
         </div>
       )}

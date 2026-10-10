@@ -439,6 +439,7 @@ function App() {
     },
     onStartRecording: startVideoCapture,
     onError: (err) => setSubmitError(err),
+    onNotice: (notice) => setSubmitError(notice),
   })
 
   // Crop is followed by annotation, which then hands over to review.

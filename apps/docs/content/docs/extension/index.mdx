@@ -108,3 +108,21 @@ bun run --filter extension build
 ```
 
 Then in `chrome://extensions`, click reload on the Crikket extension.
+
+## Full-Page Screenshots
+
+The popup's **Capture Full Page** action captures the whole scrollable page as one image. It scrolls the active tab one viewport at a time, calls `chrome.tabs.captureVisibleTab` for each slice, and stitches the slices on a canvas at the page's device pixel ratio. The result opens in the same crop and annotate stage as **Take Screenshot**, which is unchanged. The page's original scroll position is restored afterwards, including when a capture fails.
+
+It does not use the Chrome DevTools Protocol, so the extension needs no `debugger` permission and Chrome shows no "started debugging this browser" banner.
+
+### Limitations
+
+- **Rate limit.** Chromium allows about two `captureVisibleTab` calls per second. Slices are paced about 600 ms apart and a rate-limit error is retried, so a long page takes a few seconds per screen of height. Keep the popup open until the recorder tab appears.
+- **Sticky and fixed elements.** Headers, footers and chat widgets that are fixed or sticky appear in every slice, so they repeat down the stitched image.
+- **Lazy-loaded content.** Each slice is taken a short moment after scrolling. Images or sections that load later than that can appear blank or as placeholders.
+- **Size cap.** The stitched canvas is limited to 16,384 device pixels per side and 268 million pixels in area. Taller pages are cut off at that limit.
+- **Scope.** Only the top-level document's vertical scroll is captured. Content inside nested scroll containers and horizontal overflow beyond the viewport are not stitched.
+- **Truncation notice.** When a page is cut off at the size cap, the editor shows a notice that the capture stops partway down the page.
+- **Popup must stay open.** The capture runs in the popup, so closing it (or switching windows so it loses focus) mid-capture cancels it and restores the scroll position. Moving the loop into the background service worker is a possible follow-up.
+- **Restricted pages.** Browser pages (`chrome://`), the Chrome Web Store and the PDF viewer block scripting, so full-page capture shows an error there. If the tab navigates or closes mid-capture, the capture stops with an error and does not touch the new page.
+- **Storage.** Results are tried as PNG, then JPEG at decreasing quality, to stay under the roughly 8 MB budget of `chrome.storage.local`; a result that still does not fit is rejected with an error.

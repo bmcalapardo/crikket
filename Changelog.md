@@ -38,3 +38,4 @@
 - [BC] app(fix): show the sign-in message for opaque redirects and require an origin-only VITE_APP_URL
 - [BC] test(extension): wait on conditions instead of ticks and best-of-N timing so tests pass under load
 - [BC] ci: widen docker and extension release path filters and run docker checks on prerelease PRs
+- [BC] feat(extension): capture a whole scrollable page by scroll and stitch (#17)
