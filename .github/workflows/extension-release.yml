@@ -83,8 +83,10 @@ jobs:
           fi
           printf 'VITE_APP_URL=%s\nVITE_SERVER_URL=%s\n' "$APP_URL" "$SERVER_URL" > .env
 
+      # Only the extension and the workspace packages it depends on: unrelated
+      # workspaces (e.g. docs) can't block a release.
       - name: Type check
-        run: bun run check-types
+        run: bun x turbo run check-types --filter=extension...
 
       - name: Run tests
         run: bun run test
