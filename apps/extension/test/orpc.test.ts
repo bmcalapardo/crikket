@@ -85,6 +85,29 @@ describe("createExtensionClient failure modes", () => {
     expect(getSubmissionErrorMessage(error)).toContain("web page")
   })
 
+  test("treats a redirect hidden behind an opaque response as a sign-in problem", async () => {
+    // Browsers hide redirect: "manual" responses: type "opaqueredirect",
+    // status 0, no headers. Response cannot be constructed that way.
+    const opaque = Object.defineProperty(new Response(null), "type", {
+      value: "opaqueredirect",
+    })
+    const error = await callWith(() => Promise.resolve(opaque))
+
+    expect(error).toBeInstanceOf(Error)
+    expect(getSubmissionErrorMessage(error)).toContain("Sign in to Crikket")
+  })
+
+  test("treats a 3xx response as a sign-in problem", async () => {
+    const error = await callWith(() =>
+      Promise.resolve(
+        new Response(null, { status: 302, headers: { location: "/login" } })
+      )
+    )
+
+    expect(error).toBeInstanceOf(Error)
+    expect(getSubmissionErrorMessage(error)).toContain("Sign in to Crikket")
+  })
+
   test("blames the connection, not storage, when Crikket is unreachable", async () => {
     const error = await callWith(() =>
       Promise.reject(new TypeError("Failed to fetch"))

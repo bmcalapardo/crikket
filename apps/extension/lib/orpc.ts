@@ -5,6 +5,18 @@ import { createORPCClient } from "@orpc/client"
 import { RPCLink } from "@orpc/client/fetch"
 import { getRpcUrl } from "./app-urls"
 
+function isSignInInterception(response: Response): boolean {
+  if (response.type === "opaqueredirect") {
+    return true
+  }
+  if (response.status >= 300 && response.status < 400) {
+    return true
+  }
+  return (
+    response.ok && !!response.headers.get("content-type")?.includes("text/html")
+  )
+}
+
 /**
  * Extension-specific ORPC client
  * Simplified version without Next.js dependencies since extensions run only in browser context
@@ -18,14 +30,14 @@ export function createExtensionClient(appUrl: string): AppRouterClient {
         credentials: "include",
       })
 
-      // RPC goes through the web app, so a web page here means something in
-      // front of the server answered instead: a login redirect, deployment
-      // protection, or a wrong app URL. Treating it as data would report a
-      // submission that never happened as a success.
-      if (
-        response.ok &&
-        response.headers.get("content-type")?.includes("text/html")
-      ) {
+      // RPC goes through the web app, so a web page or a redirect here means
+      // something in front of the server answered instead: a login redirect,
+      // deployment protection, or a wrong app URL. oRPC uses redirect: "manual",
+      // so browsers report a redirect as an opaque response (type
+      // "opaqueredirect", status 0) rather than a 3xx. Treating either as data
+      // would report a submission that never happened as a success, or as a
+      // vague failure.
+      if (isSignInInterception(response)) {
         throw new Error(
           "Crikket returned a web page instead of an API response. Sign in to Crikket in a browser tab, then retry."
         )
