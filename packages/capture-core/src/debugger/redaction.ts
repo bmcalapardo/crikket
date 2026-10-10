@@ -25,12 +25,14 @@ const SENSITIVE_NAME_PATTERNS = [
   "private-key",
   "privatekey",
   "jwt",
+  "passphrase",
+  "bearer",
 ] as const
 
 // A name followed by ":" or "=", as in "token=…", "Authorization: …" or a
 // JSON "key": (the optional quote is the key's closing quote). The name must
 // not start mid-word.
-const KEY_SEPARATOR_SOURCE = String.raw`(?<![\w$.-])([A-Za-z_$][\w$.-]{0,63})(["']?\s*[:=]\s*)`
+const KEY_SEPARATOR_SOURCE = String.raw`(?<![\w$.-])([A-Za-z_$][\w$.-]{0,63})(\\?["']?\s*[:=]\s*)`
 
 // An unquoted value runs to the next separator, so a value with spaces is
 // masked whole.
@@ -57,10 +59,10 @@ const URL_PARAM_SECRET_NAMES = new Set([
 const URL_PARAM_PATTERN = /([?&#])([^=&#?/\s]+)=([^&#\s]*)/g
 
 // "user:password@" in the authority of an absolute or protocol-relative URL.
-const URL_USERINFO_PATTERN = /(\/\/[^/\s:@?#]+:)[^/\s@?#]+@/g
+const URL_USERINFO_PATTERN = /(\/\/[^/\s:@?#]*:)[^/\s@?#]+@/g
 
 // A JWT is recognizable by shape whatever field it sits in.
-const JWT_PATTERN = /\beyJ[\w-]{4,}\.eyJ[\w-]{4,}\.[\w-]*/g
+const JWT_PATTERN = /\beyJ[\w-]{4,}\.eyJ[\w-]{4,}(?:\.[\w-]*)?/g
 
 const MULTIPART_START_PATTERN = /^--[^\n]*\r?\ncontent-disposition:/i
 
@@ -108,6 +110,11 @@ export function isSensitiveName(value: string): boolean {
   const normalizedValue = value.trim().toLowerCase().replaceAll("_", "-")
   if (!normalizedValue) {
     return false
+  }
+
+  // Too short to match as a substring ("author", "oauth-state").
+  if (normalizedValue === "auth") {
+    return true
   }
 
   return SENSITIVE_NAME_PATTERNS.some((pattern) => {
@@ -212,12 +219,20 @@ function redactUrlParams(url: string): string {
       }
 
       const decodedName = safeDecode(name)
+      const decodedValue = safeDecode(paramValue)
       const secret =
         URL_PARAM_SECRET_NAMES.has(decodedName.toLowerCase()) ||
-        isRedactableEntry(decodedName, parseScalar(safeDecode(paramValue)))
+        isRedactableEntry(decodedName, parseScalar(decodedValue)) ||
+        carriesNestedSecret(decodedValue, paramValue)
       return secret ? `${separator}${name}=${REDACTED_VALUE}` : match
     }
   )
+}
+
+// A URL passed as a param value ("?redirect=https%3A%2F%2F...%3Ftoken%3D...")
+// is masked whole when decoding it reveals a secret.
+function carriesNestedSecret(decoded: string, raw: string): boolean {
+  return decoded !== raw && redactText(redactUrlParams(decoded)) !== decoded
 }
 
 function safeDecode(value: string): string {
@@ -326,9 +341,45 @@ function maskValueAt(
   name: string
 ): MaskedValue | undefined {
   const quote = text[valueStart]
+  const escapedQuote = text[valueStart + 1]
+  if (quote === "\\" && (escapedQuote === '"' || escapedQuote === "'")) {
+    return maskEscapedQuotedValueAt(text, valueStart, name, escapedQuote)
+  }
+
   return quote === '"' || quote === "'"
     ? maskQuotedValueAt(text, valueStart, name, quote)
     : maskUnquotedValueAt(text, valueStart, name)
+}
+
+// JSON embedded in a string: the value is wrapped in \"...\" and runs to the
+// escaped closing quote, or to the end of the line when truncation cut it off.
+function maskEscapedQuotedValueAt(
+  text: string,
+  valueStart: number,
+  name: string,
+  quote: string
+): MaskedValue | undefined {
+  let end = valueStart + 2
+  while (
+    end < text.length &&
+    text[end] !== "\n" &&
+    !(text[end] === "\\" && text[end + 1] === quote)
+  ) {
+    end += 1
+  }
+
+  const closed = text[end] === "\\" && text[end + 1] === quote
+  const inner = text.slice(valueStart + 2, end)
+  if (!(inner && isRedactableEntry(name, inner))) {
+    return undefined
+  }
+
+  const scheme = AUTH_SCHEME_PREFIX_PATTERN.exec(inner)?.[0] ?? ""
+  const escaped = `\\${quote}`
+  return {
+    end: closed ? end + 2 : end,
+    replacement: `${escaped}${scheme}${REDACTED_VALUE}${closed ? escaped : ""}`,
+  }
 }
 
 // A quoted value runs to its closing quote, or to the end of the text when

@@ -184,3 +184,51 @@ describe("redaction timing", () => {
     }
   })
 })
+
+describe("redaction leak regressions, round 2", () => {
+  it("masks userinfo with an empty user (redis://:pw@host)", () => {
+    const out = redactText(`redis://:${SECRET}@h:6379`)
+    expect(out).not.toContain(SECRET)
+    expect(out).toContain("@h:6379")
+    expect(redactUrl(`rediss://:${SECRET}@h`)).not.toContain(SECRET)
+  })
+
+  it("masks values in JSON that is embedded as an escaped string", () => {
+    const inner = JSON.stringify({ password: SECRET, keep: "visible" })
+    const logLine = JSON.stringify({ msg: inner })
+    const out = redactText(logLine)
+    expect(out).not.toContain(SECRET)
+    expect(out).toContain("visible")
+    expect(redactText(out)).toBe(out)
+    expect(redactText(`got ${JSON.stringify(inner)} end`)).not.toContain(SECRET)
+  })
+
+  it("masks a JWT whose signature was cut off", () => {
+    expect(redactText(`t eyJhbGciOiJIUzI1NiJ9.eyJ${SECRET}`)).not.toContain(
+      SECRET
+    )
+    expect(redactText("alg eyJhbGciOiJIUzI1NiJ9 only")).toBe(
+      "alg eyJhbGciOiJIUzI1NiJ9 only"
+    )
+  })
+
+  it("treats passphrase, bearer and auth as sensitive names", () => {
+    for (const name of ["passphrase", "bearer", "auth", "Auth"]) {
+      expect(redactBody(JSON.stringify({ [name]: SECRET }))).not.toContain(
+        SECRET
+      )
+    }
+    expect(isSensitiveName("author")).toBe(false)
+    expect(redactBody('{"auth":true}')).toBe('{"auth":true}')
+  })
+
+  it("masks a URL that carries a secret inside an encoded param value", () => {
+    const nested = encodeURIComponent(`https://a.com/cb?access_token=${SECRET}`)
+    const out = redactUrl(`https://b.com/login?redirect=${nested}&q=1`)
+    expect(out).not.toContain(SECRET)
+    expect(out).toContain("&q=1")
+    expect(redactUrl("/p?next=%2Fhome%3Ftab%3D2&q=1")).toBe(
+      "/p?next=%2Fhome%3Ftab%3D2&q=1"
+    )
+  })
+})
