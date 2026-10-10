@@ -2,12 +2,13 @@ import { Button } from "@crikket/ui/components/ui/button"
 import type { KeyboardEvent } from "react"
 import { useCallback, useState } from "react"
 import { type CropCorner, useScreenshotCrop } from "@/hooks/use-screenshot-crop"
+import type { Rect } from "@/lib/screenshot-crop"
 
 interface CropStepProps {
   // Always the original Capture, so a new crop never compounds an old one.
   imageBlob: Blob
   hasAppliedEdit: boolean
-  onApply: (blob: Blob) => void
+  onApply: (blob: Blob, rect: Rect) => void
   onResetEdit: () => void
   onSkip: () => void
 }
@@ -63,9 +64,9 @@ export function CropStep({
   const handleApply = useCallback(async () => {
     setIsApplying(true)
     try {
-      const blob = await crop.applyCrop()
-      if (blob) {
-        onApply(blob)
+      const result = await crop.applyCrop()
+      if (result) {
+        onApply(result.blob, result.rect)
       }
     } finally {
       setIsApplying(false)

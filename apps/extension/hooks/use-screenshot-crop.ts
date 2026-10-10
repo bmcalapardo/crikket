@@ -45,7 +45,8 @@ export interface UseScreenshotCropReturn {
   resizeCornerBy: (corner: CropCorner, dx: number, dy: number) => void
   createDefaultSelection: () => void
   reset: () => void
-  applyCrop: () => Promise<Blob | null>
+  // `rect` is the crop in native pixels of the image shown (the Capture).
+  applyCrop: () => Promise<{ blob: Blob; rect: Rect } | null>
 }
 
 function pointFromEvent(
@@ -297,7 +298,10 @@ export function useScreenshotCrop(
     setSelection(null)
   }, [])
 
-  const applyCrop = useCallback(async (): Promise<Blob | null> => {
+  const applyCrop = useCallback(async (): Promise<{
+    blob: Blob
+    rect: Rect
+  } | null> => {
     const img = imgRef.current
     const bounds = getDisplayBounds()
     if (!(img && naturalSize && bounds && selection)) return null
@@ -327,7 +331,8 @@ export function useScreenshotCrop(
       nativeRect.height
     )
 
-    return await canvasToPngBlob(canvas)
+    const blob = await canvasToPngBlob(canvas)
+    return blob ? { blob, rect: nativeRect } : null
   }, [getDisplayBounds, naturalSize, selection])
 
   return {
