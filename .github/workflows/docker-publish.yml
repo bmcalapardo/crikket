@@ -8,14 +8,23 @@ on:
       - "v*"
   # On PRs the images are only built, never pushed, so skip PRs that can't
   # change them. Not a required check, so path filtering can't block merges.
+  # Feature PRs target prerelease/vX.Y.Z, so those run too: a broken image is
+  # caught there rather than on the block PR into master.
+  #
+  # The Dockerfiles copy all of apps/ and run `bun install --frozen-lockfile`,
+  # so a change to any app's package.json (the extension and docs included)
+  # can break the build, as can .dockerignore, which decides what is copied.
   pull_request:
     branches:
       - master
+      - "prerelease/**"
     paths:
       - "apps/web/**"
       - "apps/server/**"
+      - "apps/*/package.json"
       - "packages/**"
       - "sdks/**"
+      - ".dockerignore"
       - "package.json"
       - "bun.lock"
       - "turbo.json"
