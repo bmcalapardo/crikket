@@ -6,6 +6,7 @@ import {
 import type { BugReportVisibility } from "@crikket/shared/constants/bug-report"
 import type { Priority } from "@crikket/shared/constants/priorities"
 import { client } from "./orpc"
+import type { ReportEnvironment } from "./report-environment"
 
 export async function submitBugReportWithUploads(input: {
   attachment: Blob
@@ -17,6 +18,7 @@ export async function submitBugReportWithUploads(input: {
     networkRequests: number
   }
   description?: string
+  environment?: ReportEnvironment
   deviceInfo?: {
     browser?: string
     os?: string
@@ -37,6 +39,7 @@ export async function submitBugReportWithUploads(input: {
     captureContentType: input.attachment.type || undefined,
     description: input.description,
     deviceInfo: input.deviceInfo,
+    environment: input.environment,
     hasDebuggerPayload: Boolean(input.debuggerPayload),
     debuggerSummary: input.debuggerSummary,
     metadata: input.metadata,

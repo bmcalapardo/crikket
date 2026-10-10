@@ -25,6 +25,20 @@ export interface DebuggerTimelineEntry {
   offset: number | null
 }
 
+// Mirrors environmentInputSchema; read defensively, since it is optional and
+// versioned.
+export interface ReportEnvironment {
+  schemaVersion?: number
+  extensionVersion?: string
+  buildSha?: string
+  browser?: { name?: string; version?: string }
+  os?: string
+  viewport?: { width?: number; height?: number }
+  devicePixelRatio?: number
+  capture?: { type?: string; durationMs?: number }
+  page?: { url?: string; title?: string }
+}
+
 export interface DeviceInfo {
   browser?: string
   os?: string

@@ -31,6 +31,7 @@ import {
 } from "./ingestion-jobs"
 import {
   deviceInfoInputSchema,
+  environmentInputSchema,
   metadataInputSchema,
 } from "./report-payload-schema"
 import { getStorageProvider } from "./storage"
@@ -66,6 +67,7 @@ export const createBugReportUploadSessionInputSchema = z.object({
   visibility: z.enum(visibilityValues).default("public"),
   metadata: metadataInputSchema,
   deviceInfo: deviceInfoInputSchema,
+  environment: environmentInputSchema,
   captureContentType: z.string().max(MAX_CONTENT_TYPE_LENGTH).optional(),
   hasDebuggerPayload: z.boolean().default(false),
   debuggerSummary: debuggerSummarySchema.optional(),
@@ -192,6 +194,7 @@ export async function createBugReportUploadSession(input: {
       debuggerKey,
       visibility: input.input.visibility,
       deviceInfo: input.input.deviceInfo,
+      environment: input.input.environment,
       metadata: {
         ...normalizedMetadata,
         debuggerSummary: input.input.debuggerSummary,
@@ -353,6 +356,7 @@ export async function finalizeBugReportUpload(input: {
       submissionStatus: BUG_REPORT_SUBMISSION_STATUS_OPTIONS.processing,
       visibility: uploadSession.visibility,
       deviceInfo: uploadSession.deviceInfo,
+      environment: uploadSession.environment,
       status: "open",
       metadata: uploadSession.metadata,
     })

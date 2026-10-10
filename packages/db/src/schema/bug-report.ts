@@ -46,6 +46,8 @@ export const bugReport = pgTable(
     visibility: text("visibility").default("public").notNull(), // public | private
     metadata: jsonb("metadata"),
     deviceInfo: jsonb("device_info"), // browser, os, viewport, etc.
+    // Versioned (schemaVersion inside); see environmentInputSchema.
+    environment: jsonb("environment"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -84,6 +86,7 @@ export const bugReportUploadSession = pgTable(
     debuggerKey: text("debugger_key"),
     metadata: jsonb("metadata"),
     deviceInfo: jsonb("device_info"),
+    environment: jsonb("environment"),
     expiresAt: timestamp("expires_at").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")

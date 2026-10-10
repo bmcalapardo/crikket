@@ -47,6 +47,7 @@ import {
   isUnauthorizedSubmissionError,
   normalizeOptionalText,
 } from "@/lib/recorder-submit"
+import { collectReportEnvironment } from "@/lib/report-environment"
 import type { Rect } from "@/lib/screenshot-crop"
 import {
   annotationBase,
@@ -548,6 +549,12 @@ function App() {
           pageTitle: captureContextSubmissionData.normalizedPageTitle,
         },
         deviceInfo: getDeviceInfo(),
+        environment: await collectReportEnvironment({
+          captureType,
+          durationMs,
+          pageTitle: captureContextSubmissionData.normalizedPageTitle,
+          pageUrl: captureContextSubmissionData.normalizedUrl,
+        }),
         debuggerPayload: debuggerSubmission.payload,
         debuggerSummary: debuggerSubmission.summary,
       })

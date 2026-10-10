@@ -8,6 +8,7 @@ import {
   runChecks,
 } from "@/lib/diagnostics/checks"
 import type { ErrorLogEntry } from "@/lib/diagnostics/error-log"
+import { readIncludePage, writeIncludePage } from "@/lib/report-environment"
 
 interface DiagnosticsPageProps {
   environment: DiagnosticsEnvironment
@@ -16,6 +17,8 @@ interface DiagnosticsPageProps {
   now?: () => number
   writeClipboard?: (text: string) => Promise<void>
   saveFile?: (filename: string, text: string) => void
+  loadIncludePage?: () => Promise<boolean>
+  saveIncludePage?: (value: boolean) => Promise<void>
 }
 
 const STATUS_TEXT: Record<CheckStatus, string> = {
@@ -52,11 +55,30 @@ export function DiagnosticsPage({
   now = Date.now,
   writeClipboard = defaultWriteClipboard,
   saveFile = defaultSaveFile,
+  loadIncludePage = readIncludePage,
+  saveIncludePage = writeIncludePage,
 }: DiagnosticsPageProps) {
   const [report, setReport] = useState<DiagnosticsReport | null>(null)
   const [errors, setErrors] = useState<ErrorLogEntry[]>([])
   const [isRunning, setIsRunning] = useState(false)
   const [notice, setNotice] = useState("")
+  const [includePage, setIncludePage] = useState(true)
+
+  useEffect(() => {
+    loadIncludePage()
+      .then(setIncludePage)
+      .catch(() => undefined)
+  }, [loadIncludePage])
+
+  const toggleIncludePage = async (value: boolean) => {
+    setIncludePage(value)
+    try {
+      await saveIncludePage(value)
+    } catch {
+      setIncludePage(!value)
+      setNotice("Could not save the setting.")
+    }
+  }
 
   const run = useCallback(async () => {
     setIsRunning(true)
@@ -143,6 +165,28 @@ export function DiagnosticsPage({
       <output aria-live="polite" className="block min-h-5 text-sm">
         {notice}
       </output>
+
+      <section aria-labelledby="settings-heading" className="space-y-2">
+        <h2 className="font-medium text-base" id="settings-heading">
+          Report settings
+        </h2>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            checked={includePage}
+            className="mt-1"
+            name="include-page"
+            onChange={(event) => toggleIncludePage(event.target.checked)}
+            type="checkbox"
+          />
+          <span>
+            Include the page URL and title in the report environment
+            <span className="block text-muted-foreground text-xs">
+              Tokens in the URL are masked. Browser, OS, viewport and the
+              extension version are always included.
+            </span>
+          </span>
+        </label>
+      </section>
 
       <section aria-labelledby="checks-heading" className="space-y-2">
         <h2 className="font-medium text-base" id="checks-heading">

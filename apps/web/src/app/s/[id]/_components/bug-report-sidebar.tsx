@@ -11,6 +11,7 @@ import type {
   DebuggerNetworkRequest,
   DebuggerTimelineEntry,
   DeviceInfo,
+  ReportEnvironment,
   SharedBugReport,
 } from "./types"
 
@@ -59,6 +60,7 @@ export function BugReportSidebar({
   onEntrySelect,
 }: BugReportSidebarProps) {
   const deviceInfo = data.deviceInfo as DeviceInfo | null
+  const environment = data.environment as ReportEnvironment | null
   const reporterName = data.reporter?.name?.trim()
 
   return (
@@ -107,6 +109,49 @@ export function BugReportSidebar({
                 <DetailRow label="Viewport" value={deviceInfo?.viewport} />
               </div>
             </div>
+            {environment ? (
+              <>
+                <Separator />
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+                    Environment
+                  </h3>
+                  <div className="grid gap-3 text-sm">
+                    <DetailRow
+                      label="Extension"
+                      value={formatExtension(environment)}
+                    />
+                    <DetailRow
+                      label="Browser"
+                      value={[
+                        environment.browser?.name,
+                        environment.browser?.version,
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    />
+                    <DetailRow label="OS" value={environment.os} />
+                    <DetailRow
+                      label="Viewport"
+                      value={formatViewport(environment)}
+                    />
+                    <DetailRow
+                      label="Capture"
+                      value={formatCapture(environment)}
+                    />
+                    <DetailRow
+                      className="break-all"
+                      label="Page URL"
+                      value={environment.page?.url}
+                    />
+                    <DetailRow
+                      label="Page title"
+                      value={environment.page?.title}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : null}
             <Separator />
             <div className="space-y-4">
               <h3 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
@@ -199,6 +244,28 @@ function TabButton({
       {label}
     </button>
   )
+}
+
+function formatExtension(environment: ReportEnvironment) {
+  if (!environment.extensionVersion) return null
+  return environment.buildSha
+    ? `${environment.extensionVersion} (${environment.buildSha.slice(0, 7)})`
+    : environment.extensionVersion
+}
+
+function formatViewport(environment: ReportEnvironment) {
+  const { viewport, devicePixelRatio } = environment
+  if (!(viewport?.width && viewport.height)) return null
+  const size = `${viewport.width}x${viewport.height}`
+  return devicePixelRatio ? `${size} @${devicePixelRatio}x` : size
+}
+
+function formatCapture(environment: ReportEnvironment) {
+  const { capture } = environment
+  if (!capture?.type) return null
+  return capture.type === "video" && capture.durationMs
+    ? `video, ${(capture.durationMs / 1000).toFixed(1)}s`
+    : capture.type
 }
 
 function DetailRow({

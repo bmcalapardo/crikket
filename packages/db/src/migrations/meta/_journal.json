@@ -8,6 +8,13 @@
       "when": 1772496592578,
       "tag": "0000_tidy_thundra",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791634884610,
+      "tag": "0001_report_environment",
+      "breakpoints": true
     }
   ]
 }

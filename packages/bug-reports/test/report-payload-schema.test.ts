@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import {
   deviceInfoInputSchema,
+  environmentInputSchema,
   metadataInputSchema,
 } from "../src/lib/report-payload-schema"
 
@@ -91,5 +92,43 @@ describe("report payload schemas", () => {
       metadataInputSchema.safeParse({ durationMs: 24 * 60 * 60 * 1000 }).success
     ).toBe(true)
     expect(metadataInputSchema.safeParse({ durationMs: 0 }).success).toBe(true)
+  })
+})
+
+describe("environment schema", () => {
+  const environment = {
+    schemaVersion: 1,
+    extensionVersion: "0.1.4",
+    buildSha: "abc123",
+    browser: { name: "Chrome", version: "126.0.0.0" },
+    os: "Windows",
+    viewport: { width: 1280, height: 720 },
+    devicePixelRatio: 2,
+    capture: { type: "video", durationMs: 1500 },
+    page: { url: "https://example.com/a", title: "A" },
+  }
+
+  it("is optional so SDK reports and old extension builds validate", () => {
+    expect(environmentInputSchema.parse(undefined)).toBeUndefined()
+  })
+
+  it("accepts the environment the extension sends", () => {
+    expect(environmentInputSchema.parse(environment)).toEqual(environment)
+  })
+
+  it("rejects an unknown key, an unknown version and a bad capture type", () => {
+    expect(
+      environmentInputSchema.safeParse({ ...environment, extra: 1 }).success
+    ).toBeFalse()
+    expect(
+      environmentInputSchema.safeParse({ ...environment, schemaVersion: 2 })
+        .success
+    ).toBeFalse()
+    expect(
+      environmentInputSchema.safeParse({
+        ...environment,
+        capture: { type: "gif", durationMs: 0 },
+      }).success
+    ).toBeFalse()
   })
 })

@@ -178,3 +178,25 @@ describe("DiagnosticsPage", () => {
     expect(row(rendered, "storage-availability")?.textContent).toContain("Pass")
   })
 })
+
+describe("DiagnosticsPage report settings", () => {
+  it("defaults the page setting on and saves a change", async () => {
+    const saved: boolean[] = []
+    const rendered = await renderPage({
+      loadIncludePage: () => Promise.resolve(true),
+      saveIncludePage: (value) => {
+        saved.push(value)
+        return Promise.resolve()
+      },
+    })
+    const box = rendered.querySelector<HTMLInputElement>(
+      'input[name="include-page"]'
+    )
+    expect(box?.checked).toBe(true)
+    await Promise.resolve()
+    act(() => {
+      box?.click()
+    })
+    expect(saved).toEqual([false])
+  })
+})
