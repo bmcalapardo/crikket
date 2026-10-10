@@ -2,16 +2,16 @@ import { describe, expect, it } from "bun:test"
 import { readFileSync } from "node:fs"
 import { TOGGLE_PAUSE_RECORDING_COMMAND } from "../lib/recorder-hotkey-commands"
 
-// Reads the config as text: importing wxt itself costs ~10s per test run.
+// Reads the command declarations as text: importing wxt itself costs ~10s per test run.
 const source = readFileSync(
-  new URL("../wxt.config.ts", import.meta.url),
+  new URL("../lib/manifest-contract.ts", import.meta.url),
   "utf8"
 )
 
 function commandBlock(name: string): string {
   const start = source.indexOf(`"${name}": {`)
   if (start === -1) {
-    throw new Error(`command ${name} is missing from wxt.config.ts`)
+    throw new Error(`command ${name} is missing from lib/manifest-contract.ts`)
   }
   return source.slice(start, source.indexOf("\n      },", start))
 }

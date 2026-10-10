@@ -1,5 +1,10 @@
 import { defineConfig } from "wxt"
 import { resolveBuildSha } from "./lib/build-sha"
+import {
+  EXTENSION_COMMANDS,
+  EXTENSION_HOST_PERMISSIONS,
+  EXTENSION_PERMISSIONS,
+} from "./lib/manifest-contract"
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
@@ -19,36 +24,9 @@ export default defineConfig({
       default_title: "Crikket",
       default_popup: "popup.html",
     },
-    commands: {
-      "start-video-recording": {
-        description: "Start video recording",
-        suggested_key: {
-          default: "Alt+Shift+R",
-          mac: "Alt+Shift+R",
-        },
-      },
-      "start-screenshot-capture": {
-        description: "Start screenshot capture",
-        suggested_key: {
-          default: "Alt+Shift+C",
-          mac: "Alt+Shift+C",
-        },
-      },
-      "stop-video-recording": {
-        description: "Stop video recording",
-        suggested_key: {
-          default: "Alt+Shift+S",
-          mac: "Alt+Shift+S",
-        },
-      },
-      // No suggested_key: all four slots are taken. Testers can bind one at
-      // chrome://extensions/shortcuts.
-      "toggle-pause-recording": {
-        description: "Pause or resume video recording",
-      },
-    },
-    permissions: ["activeTab", "scripting", "storage", "tabCapture", "tabs"],
-    host_permissions: ["<all_urls>"],
+    commands: EXTENSION_COMMANDS,
+    permissions: EXTENSION_PERMISSIONS,
+    host_permissions: EXTENSION_HOST_PERMISSIONS,
 
     browser_specific_settings: {
       gecko: {

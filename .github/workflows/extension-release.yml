@@ -106,6 +106,18 @@ jobs:
           VITE_BUILD_SHA: ${{ github.sha }}
         run: bun run zip:firefox
 
+      # Blocks the release: `publish` needs this job, so a failure here means
+      # no GitHub Release is created. Checks the packages, their manifests and
+      # that the backend this build targets answers /health.
+      - name: Verify release
+        env:
+          APP_URL: ${{ vars.EXTENSION_APP_URL }}
+          SERVER_URL: ${{ vars.EXTENSION_SERVER_URL }}
+        run: |
+          version="$(jq -r .version apps/extension/package.json)"
+          bun apps/extension/scripts/verify-release.ts --browser chrome --zip "apps/extension/.output/extension-$version-chrome.zip"
+          bun apps/extension/scripts/verify-release.ts --browser firefox --skip-health --zip "apps/extension/.output/extension-$version-firefox.zip"
+
       - name: Name artifacts
         run: |
           mkdir -p release

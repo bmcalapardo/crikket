@@ -25,6 +25,13 @@ const nextConfig: NextConfig = {
         destination: `${process.env.NEXT_PUBLIC_SERVER_URL}/api/auth/:path*`,
       })
 
+      // Release smoke check: lets the extension reach the backend /health
+      // through the one URL it knows (VITE_APP_URL).
+      rewrites.push({
+        source: "/server-health",
+        destination: `${process.env.NEXT_PUBLIC_SERVER_URL}/health`,
+      })
+
       // New ORPC proxy
       rewrites.push({
         source: "/rpc/:path*",

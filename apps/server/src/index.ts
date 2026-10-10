@@ -22,6 +22,7 @@ import { handleCaptureFinalize } from "./capture/finalize-route"
 import { handleCaptureToken } from "./capture/token-route"
 import { handleCaptureUploadSession } from "./capture/upload-session-route"
 import { resolveCorsOrigin } from "./cors-origin"
+import { handleHealth } from "./health"
 
 const app = new Hono()
 const allowedCorsOrigins = env.CORS_ORIGINS
@@ -117,6 +118,16 @@ app.use(
       "x-crikket-public-key",
     ],
     credentials: true,
+  })
+)
+
+// Registered ahead of the rate limit and session middleware below so a
+// release check never depends on Redis, the database or a session.
+app.get("/health", () =>
+  handleHealth({
+    APP_VERSION: env.APP_VERSION,
+    GIT_COMMIT_SHA: env.GIT_COMMIT_SHA,
+    VERCEL_GIT_COMMIT_SHA: env.VERCEL_GIT_COMMIT_SHA,
   })
 )
 

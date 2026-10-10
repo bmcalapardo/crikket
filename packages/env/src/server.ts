@@ -59,6 +59,10 @@ export const env = createEnv({
     CAPTURE_SUBMIT_TOKEN_SECRET: z.string().min(32).optional(),
     TURNSTILE_SITE_KEY: z.string().min(1).optional(),
     TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+    // Deploy identity reported by GET /health. Unset values report "unknown".
+    APP_VERSION: z.string().min(1).optional(),
+    GIT_COMMIT_SHA: z.string().min(1).optional(),
+    VERCEL_GIT_COMMIT_SHA: z.string().min(1).optional(),
     NODE_ENV: z
       .enum(["development", "production", "staging"])
       .default("development"),
