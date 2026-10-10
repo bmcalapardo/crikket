@@ -1,7 +1,7 @@
 import { MAX_BODY_LENGTH } from "../constants"
 import { getRequestBodyPreview, shouldCaptureTextContent } from "../serializer"
 import type { Reporter } from "../types"
-import { sanitizeCapturedBody, truncate } from "../utils"
+import { redactCapturedBody, truncate } from "../utils"
 
 export const scheduleBackgroundTask = (
   reporter: Reporter,
@@ -35,7 +35,7 @@ export const getRequestBodyPreviewAsync = (
   return new Promise((resolve) => {
     scheduleBackgroundTask(reporter, () => {
       resolve(
-        sanitizeCapturedBody(
+        redactCapturedBody(
           getRequestBodyPreview(body, stringifyValue),
           contentType
         )
@@ -59,7 +59,7 @@ export const getTextBodyPreviewAsync = (
 
       try {
         resolve(
-          sanitizeCapturedBody(
+          redactCapturedBody(
             truncate(await readBody(), MAX_BODY_LENGTH),
             contentType
           )

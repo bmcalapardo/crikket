@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 
+import { MAX_NETWORK_BODY_LENGTH } from "../src/debugger/constants"
 import {
   normalizeDebuggerEvent,
   normalizeStoredReplayBuffer,
@@ -7,7 +8,7 @@ import {
 } from "../src/debugger/normalize"
 
 describe("debugger normalization regression", () => {
-  it("sanitizes network events and strips debugger headers", () => {
+  it("sanitizes network events, masks secret headers and strips debugger headers", () => {
     const event = normalizeDebuggerEvent({
       kind: "network",
       timestamp: 1234.9,
@@ -34,13 +35,61 @@ describe("debugger normalization regression", () => {
       status: 201,
       duration: 456,
       requestHeaders: {
-        authorization: "Bearer token",
+        authorization: "Bearer [REDACTED]",
       },
       responseHeaders: {
         "content-type": "application/json",
       },
       requestBody: "x".repeat(4000),
       responseBody: "y".repeat(4000),
+    })
+  })
+
+  // The page bridge is a window message, so anything on the page can post an
+  // event that never went through page instrumentation's filter.
+  it("redacts secrets in events that skipped page instrumentation", () => {
+    const network = normalizeDebuggerEvent({
+      kind: "network",
+      timestamp: 1,
+      method: "POST",
+      url: "https://example.com/login?api_key=abc",
+      requestHeaders: {
+        Cookie: "sid=abc123",
+        "Content-Type": "text/plain",
+      },
+      requestBody: '{"username":"tester","password":"hunter2"}',
+    })
+
+    expect(network).toEqual({
+      kind: "network",
+      timestamp: 1,
+      method: "POST",
+      url: "https://example.com/login?api_key=[REDACTED]",
+      status: undefined,
+      duration: undefined,
+      requestHeaders: {
+        cookie: "sid=[REDACTED]",
+        "content-type": "text/plain",
+      },
+      responseHeaders: undefined,
+      requestBody: '{"username":"tester","password":"[REDACTED]"}',
+      responseBody: undefined,
+    })
+
+    const log = normalizeDebuggerEvent({
+      kind: "console",
+      timestamp: 2,
+      level: "warn",
+      message: "retrying with authorization: Bearer abc.def.ghi",
+      metadata: { refreshToken: "r-1", attempt: 2 },
+    })
+
+    expect(log).toEqual({
+      kind: "console",
+      timestamp: 2,
+      level: "warn",
+      message: "retrying with authorization: Bearer [REDACTED]",
+      metadata: { refreshToken: "[REDACTED]", attempt: 2 },
     })
   })
 
@@ -159,5 +208,37 @@ describe("debugger normalization regression", () => {
         startedAt: 1,
       })
     ).toBeNull()
+  })
+})
+
+describe("debugger normalization negative cases", () => {
+  it("caps an oversized bridged body before redacting it", () => {
+    // About 8 MB: redacting it uncapped takes most of a second, capped it
+    // takes a couple of milliseconds.
+    const hugeBody = JSON.stringify({
+      rows: Array.from({ length: 500_000 }, (_, index) => ({ index })),
+      password: "hunter2",
+    })
+    const normalize = () =>
+      normalizeDebuggerEvent({
+        kind: "network",
+        timestamp: 1,
+        method: "POST",
+        url: "https://example.com/api",
+        requestBody: hugeBody,
+      })
+
+    // Warm up first, so the budget measures the redaction pass rather than
+    // first-call compilation, and stays generous for busy CI runners.
+    normalize()
+    const start = performance.now()
+    const event = normalize()
+
+    expect(performance.now() - start).toBeLessThan(100)
+    expect(event).toMatchObject({ kind: "network" })
+    expect(
+      (event as { requestBody?: string } | undefined)?.requestBody?.length
+    ).toBeLessThanOrEqual(MAX_NETWORK_BODY_LENGTH)
+    expect(JSON.stringify(event)).not.toContain("hunter2")
   })
 })

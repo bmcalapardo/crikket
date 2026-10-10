@@ -1,3 +1,4 @@
+import { redactHeaderValue } from "../../redaction"
 import { MAX_HEADER_NAME_LENGTH, MAX_HEADER_VALUE_LENGTH } from "./constants"
 import { shouldHideHeader } from "./utils"
 
@@ -15,10 +16,10 @@ export const toHeaderRecord = (
       continue
     }
 
-    result[normalizedKey.slice(0, MAX_HEADER_NAME_LENGTH)] = value.slice(
-      0,
-      MAX_HEADER_VALUE_LENGTH
-    )
+    result[normalizedKey.slice(0, MAX_HEADER_NAME_LENGTH)] = redactHeaderValue(
+      normalizedKey,
+      value
+    ).slice(0, MAX_HEADER_VALUE_LENGTH)
   }
 
   return result
@@ -45,10 +46,10 @@ export const parseRawHeaders = (rawHeaders: string): Record<string, string> => {
       continue
     }
 
-    result[key.slice(0, MAX_HEADER_NAME_LENGTH)] = value.slice(
-      0,
-      MAX_HEADER_VALUE_LENGTH
-    )
+    result[key.slice(0, MAX_HEADER_NAME_LENGTH)] = redactHeaderValue(
+      key,
+      value
+    ).slice(0, MAX_HEADER_VALUE_LENGTH)
   }
 
   return result

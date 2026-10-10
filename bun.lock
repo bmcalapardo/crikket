@@ -45,7 +45,7 @@
     },
     "apps/extension": {
       "name": "extension",
-      "version": "0.1.2",
+      "version": "0.2.0",
       "dependencies": {
         "@crikket/api": "workspace:*",
         "@crikket/capture-core": "workspace:*",
@@ -220,6 +220,7 @@
         "@aws-sdk/s3-request-presigner": "catalog:",
         "@crikket/auth": "workspace:*",
         "@crikket/billing": "workspace:*",
+        "@crikket/capture-core": "workspace:*",
         "@crikket/db": "workspace:*",
         "@crikket/env": "workspace:*",
         "@crikket/shared": "workspace:*",

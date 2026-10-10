@@ -1,3 +1,4 @@
+import { redactUrl } from "../../../../redaction"
 import { MAX_BODY_LENGTH } from "../../constants"
 import { toHeaderRecord } from "../../headers"
 import {
@@ -5,12 +6,7 @@ import {
   shouldCaptureTextContent,
 } from "../../serializer"
 import type { Reporter } from "../../types"
-import {
-  redactSensitiveQueryParams,
-  sanitizeCapturedBody,
-  toAbsoluteUrl,
-  truncate,
-} from "../../utils"
+import { redactCapturedBody, toAbsoluteUrl, truncate } from "../../utils"
 import { getRequestBodyPreviewAsync, getTextBodyPreviewAsync } from "../shared"
 import type { FetchCaptureContext } from "./types"
 
@@ -72,7 +68,7 @@ const getFetchRequestBodyPreview = async (
   }
 
   try {
-    return sanitizeCapturedBody(
+    return redactCapturedBody(
       truncate(await input.clone().text(), MAX_BODY_LENGTH),
       contentType
     )
@@ -166,7 +162,7 @@ export const resolveFetchContext = (
 
   return {
     method,
-    normalizedUrl: redactSensitiveQueryParams(absoluteUrl),
+    normalizedUrl: redactUrl(absoluteUrl),
     requestHeaders,
     requestContentType,
     requestBodyPromise,

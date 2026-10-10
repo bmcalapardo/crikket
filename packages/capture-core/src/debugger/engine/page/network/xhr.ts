@@ -1,3 +1,4 @@
+import { redactHeaderValue, redactUrl } from "../../../redaction"
 import {
   MAX_BODY_LENGTH,
   MAX_HEADER_NAME_LENGTH,
@@ -6,8 +7,7 @@ import {
 import { parseRawHeaders } from "../headers"
 import { createStringifyValue } from "../serializer"
 import {
-  redactSensitiveQueryParams,
-  sanitizeCapturedBody,
+  redactCapturedBody,
   shouldHideHeader,
   toAbsoluteUrl,
   truncate,
@@ -41,7 +41,7 @@ export const installXhrCapture = (input: NetworkCaptureInput): void => {
     if (!normalizedUrl) {
       return null
     }
-    const redactedUrl = redactSensitiveQueryParams(normalizedUrl)
+    const redactedUrl = redactUrl(normalizedUrl)
 
     let requestBody: string | undefined
     let responseBody: string | undefined
@@ -73,11 +73,11 @@ export const installXhrCapture = (input: NetworkCaptureInput): void => {
       duration: Date.now() - state.startedAt,
       requestHeaders: state.requestHeaders,
       responseHeaders,
-      requestBody: sanitizeCapturedBody(
+      requestBody: redactCapturedBody(
         requestBody,
         state.requestHeaders["content-type"] ?? ""
       ),
-      responseBody: sanitizeCapturedBody(responseBody, responseContentType),
+      responseBody: redactCapturedBody(responseBody, responseContentType),
     }
   }
 
@@ -151,7 +151,10 @@ export const installXhrCapture = (input: NetworkCaptureInput): void => {
       const normalizedKey = key.trim().toLowerCase()
       if (!shouldHideHeader(normalizedKey)) {
         meta.requestHeaders[normalizedKey.slice(0, MAX_HEADER_NAME_LENGTH)] =
-          value.slice(0, MAX_HEADER_VALUE_LENGTH)
+          redactHeaderValue(normalizedKey, value).slice(
+            0,
+            MAX_HEADER_VALUE_LENGTH
+          )
       }
     }
 

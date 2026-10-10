@@ -20,6 +20,10 @@
       "types": "./dist/debugger/normalize.d.ts",
       "default": "./dist/debugger/normalize.js"
     },
+    "./debugger/redaction": {
+      "types": "./src/debugger/redaction.ts",
+      "default": "./src/debugger/redaction.ts"
+    },
     "./debugger/payload": {
       "types": "./dist/debugger/payload.d.ts",
       "default": "./dist/debugger/payload.js"

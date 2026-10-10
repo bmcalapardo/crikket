@@ -3,6 +3,14 @@ import {
   MAX_TEXT_LENGTH,
   MAX_URL_LENGTH,
 } from "./constants"
+import {
+  isRedactableEntry,
+  REDACTED_VALUE,
+  redactBody,
+  redactHeaderValue,
+  redactText,
+  redactUrl,
+} from "./redaction"
 import type { DebuggerEvent, StoredDebuggerSession } from "./types"
 
 export interface StoredReplayBuffer {
@@ -83,7 +91,7 @@ export function normalizeDebuggerEvent(value: unknown): DebuggerEvent | null {
       return null
     }
 
-    const message = asOptionalString(value.message, MAX_TEXT_LENGTH)
+    const message = asRedactedString(value.message, MAX_TEXT_LENGTH, redactText)
     if (!message) return null
 
     return {
@@ -96,8 +104,11 @@ export function normalizeDebuggerEvent(value: unknown): DebuggerEvent | null {
   }
 
   const method = asOptionalString(value.method, 20)
-  const url = asOptionalString(value.url, MAX_URL_LENGTH)
+  const url = asRedactedString(value.url, MAX_URL_LENGTH, redactUrl)
   if (!(method && url)) return null
+
+  const requestHeaders = sanitizeHeaders(value.requestHeaders)
+  const responseHeaders = sanitizeHeaders(value.responseHeaders)
 
   return {
     kind,
@@ -106,10 +117,18 @@ export function normalizeDebuggerEvent(value: unknown): DebuggerEvent | null {
     url,
     status: asOptionalNumber(value.status),
     duration: asOptionalNumber(value.duration),
-    requestHeaders: sanitizeHeaders(value.requestHeaders),
-    responseHeaders: sanitizeHeaders(value.responseHeaders),
-    requestBody: asOptionalString(value.requestBody, MAX_NETWORK_BODY_LENGTH),
-    responseBody: asOptionalString(value.responseBody, MAX_NETWORK_BODY_LENGTH),
+    requestHeaders,
+    responseHeaders,
+    requestBody: asRedactedString(
+      value.requestBody,
+      MAX_NETWORK_BODY_LENGTH,
+      (body) => redactBody(body, requestHeaders?.["content-type"])
+    ),
+    responseBody: asRedactedString(
+      value.responseBody,
+      MAX_NETWORK_BODY_LENGTH,
+      (body) => redactBody(body, responseHeaders?.["content-type"])
+    ),
   }
 }
 
@@ -126,7 +145,10 @@ function sanitizeHeaders(value: unknown): Record<string, string> | undefined {
       continue
     }
 
-    result[normalizedKey.slice(0, 120)] = headerValue.slice(0, 500)
+    result[normalizedKey.slice(0, 120)] = redactHeaderValue(
+      normalizedKey,
+      headerValue
+    ).slice(0, 500)
   }
 
   return Object.keys(result).length > 0 ? result : undefined
@@ -142,7 +164,9 @@ function sanitizeRecord(value: unknown): Record<string, unknown> | undefined {
   const result: Record<string, unknown> = {}
 
   for (const [key, entryValue] of Object.entries(value)) {
-    const normalized = sanitizeJsonValue(entryValue)
+    const normalized = isRedactableEntry(key, entryValue)
+      ? REDACTED_VALUE
+      : sanitizeJsonValue(entryValue)
     if (normalized === undefined) continue
     result[key.slice(0, 120)] = normalized
   }
@@ -162,7 +186,7 @@ function sanitizeJsonValue(value: unknown, depth = 0): unknown {
   }
 
   if (typeof value === "string") {
-    return value.slice(0, MAX_TEXT_LENGTH)
+    return redactText(value).slice(0, MAX_TEXT_LENGTH)
   }
 
   if (Array.isArray(value)) {
@@ -176,7 +200,9 @@ function sanitizeJsonValue(value: unknown, depth = 0): unknown {
     const result: Record<string, unknown> = {}
 
     for (const [key, entryValue] of Object.entries(value).slice(0, 30)) {
-      const normalized = sanitizeJsonValue(entryValue, depth + 1)
+      const normalized = isRedactableEntry(key, entryValue)
+        ? REDACTED_VALUE
+        : sanitizeJsonValue(entryValue, depth + 1)
       if (normalized === undefined) continue
       result[key.slice(0, 120)] = normalized
     }
@@ -197,6 +223,22 @@ function asOptionalString(
   if (!trimmed) return undefined
 
   return trimmed.slice(0, maxLength)
+}
+
+function asRedactedString(
+  value: unknown,
+  maxLength: number,
+  redact: (value: string) => string
+): string | undefined {
+  if (typeof value !== "string") return undefined
+
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+
+  // Bridged events are untrusted and unbounded, so cap the input before the
+  // redaction pass; redaction masks a value cut off at the cap, and the
+  // final slice applies the real limit.
+  return redact(trimmed.slice(0, maxLength * 2)).slice(0, maxLength)
 }
 
 function asOptionalNumber(value: unknown): number | undefined {
