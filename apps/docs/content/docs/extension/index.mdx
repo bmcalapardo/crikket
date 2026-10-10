@@ -16,16 +16,19 @@ Tester builds are published as GitHub Releases tagged `extension-vX.Y.Z`, `exten
 
 The release notes state the version and channel. To build from source instead, continue below.
 
-### Automatic alpha builds
+### Alpha and beta builds
 
-Every merge to `master` that changes the extension (or a workspace package it bundles) publishes an alpha pre-release automatically, tagged `extension-v<package version>-alpha.<build number>`. The latest alpha is always at the top of the Releases page; no one needs to tag anything.
+Each version is built in a `prerelease/vX.Y.Z` branch before it reaches `master`:
+
+- **Alpha** (`extension-vX.Y.Z-alpha.N`): published automatically whenever a change is merged into the version's prerelease branch. Newest and least reviewed.
+- **Beta** (`extension-vX.Y.Z-beta.N`): published automatically when the finished version is merged to `master`. The changelog has been reviewed.
+- **Stable** (`extension-vX.Y.Z`): tagged by a maintainer.
+
+The latest build is always at the top of the Releases page; no one needs to tag anything for alpha or beta.
 
 ### Cutting a release (maintainers)
 
-For a beta or stable release:
-
-1. Set `version` in `apps/extension/package.json` (extension versions are not managed by changesets).
-2. Push a matching tag, for example `extension-v0.1.2-beta.1` or `extension-v0.1.2`. The tag must agree with `package.json` or the workflow fails.
+For a stable release (alpha and beta are automatic), make sure `version` in `apps/extension/package.json` is the version to ship (extension versions are not managed by changesets), then push a matching tag such as `extension-v0.2.0`. The tag must agree with `package.json` or the workflow fails. A tag like `extension-v0.2.0-beta.1` can still be pushed by hand for a one-off prerelease.
 
 Both automatic and tagged releases need the repository variables `EXTENSION_APP_URL` and `EXTENSION_SERVER_URL`; the build fails without them.
 
