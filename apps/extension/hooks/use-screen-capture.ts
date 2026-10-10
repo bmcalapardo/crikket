@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react"
 import { readAndClearCaptureTabId } from "@/lib/capture-context"
+import { recordCaptureSuccess } from "@/lib/diagnostics/last-capture"
 import { requestTabCaptureStream } from "@/lib/display-media"
 
 export interface UseScreenCaptureReturn {
@@ -54,6 +55,7 @@ export function useScreenCapture(): UseScreenCaptureReturn {
         const blob = new Blob(chunksRef.current, { type: "video/webm" })
         setRecordedBlob(blob)
         setIsRecording(false)
+        recordCaptureSuccess("video")
 
         for (const track of stream.getTracks()) {
           track.stop()
@@ -91,6 +93,7 @@ export function useScreenCapture(): UseScreenCaptureReturn {
         const blob = new Blob(chunksRef.current, { type: "video/webm" })
         setRecordedBlob(blob)
         setIsRecording(false)
+        recordCaptureSuccess("video")
 
         if (streamRef.current) {
           for (const track of streamRef.current.getTracks()) {

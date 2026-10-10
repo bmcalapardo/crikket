@@ -32,3 +32,4 @@
 - [BC] feat(extension): annotate screenshots with pen, undo/redo and click-to-delete (#13)
 
 ### v0.3.0
+- [BC] feat(extension): add a diagnostics page that reports named checks and exports a redacted bundle (#24)
