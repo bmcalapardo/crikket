@@ -1,4 +1,3 @@
-import { gunzipSync } from "node:zlib"
 import { db } from "@crikket/db"
 import { bugReport, bugReportIngestionJob } from "@crikket/db/schema/bug-report"
 import {
@@ -14,6 +13,7 @@ import {
   type PersistBugReportDebuggerDataResult,
   persistBugReportDebuggerData,
 } from "./debugger"
+import { decodeDebuggerPayload } from "./debugger-payload"
 import {
   calculateBugReportIngestionRetryDelayMs,
   resolveBugReportIngestionFailureStatus,
@@ -362,10 +362,10 @@ async function ingestDebuggerPayload(input: {
 }): Promise<PersistBugReportDebuggerDataResult> {
   const storage = getStorageProvider()
   const storedPayload = await storage.read(input.debuggerKey)
-  const payloadBuffer =
-    input.debuggerContentEncoding === "gzip"
-      ? gunzipSync(storedPayload)
-      : storedPayload
+  const payloadBuffer = decodeDebuggerPayload(
+    storedPayload,
+    input.debuggerContentEncoding
+  )
   const rawPayload = JSON.parse(payloadBuffer.toString("utf8")) as {
     actions?: unknown[]
     logs?: unknown[]
