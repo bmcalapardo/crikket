@@ -67,21 +67,12 @@ jobs:
         working-directory: apps/extension
         env:
           APP_URL: ${{ vars.EXTENSION_APP_URL }}
-          SERVER_URL: ${{ vars.EXTENSION_SERVER_URL }}
         run: |
-          missing=0
           if [ -z "$APP_URL" ]; then
             echo "::error::Repository variable EXTENSION_APP_URL is not set. Release builds must not fall back to localhost."
-            missing=1
-          fi
-          if [ -z "$SERVER_URL" ]; then
-            echo "::error::Repository variable EXTENSION_SERVER_URL is not set. Release builds must not fall back to localhost."
-            missing=1
-          fi
-          if [ "$missing" -ne 0 ]; then
             exit 1
           fi
-          printf 'VITE_APP_URL=%s\nVITE_SERVER_URL=%s\n' "$APP_URL" "$SERVER_URL" > .env
+          printf 'VITE_APP_URL=%s\n' "$APP_URL" > .env
 
       # Only the extension and the workspace packages it depends on: unrelated
       # workspaces (e.g. docs) can't block a release.

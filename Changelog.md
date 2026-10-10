@@ -27,3 +27,4 @@
 ### v0.2.0
 - [BC] ci(release): merge features through prerelease/vX.Y.Z branches with changelog checks
 - [BC] ci: run docker and package publish checks only when relevant, and typecheck only the extension on release
+- [BC] app(fix): route extension RPC through the web app so sign-in authorizes it
