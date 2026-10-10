@@ -21,7 +21,7 @@ import { buildAuthHandlerRequest } from "./build-auth-handler-request"
 import { handleCaptureFinalize } from "./capture/finalize-route"
 import { handleCaptureToken } from "./capture/token-route"
 import { handleCaptureUploadSession } from "./capture/upload-session-route"
-import { resolveCorsOrigin } from "./cors-origin"
+import { createRpcOriginGuard, resolveCorsOrigin } from "./cors-origin"
 
 const app = new Hono()
 const allowedCorsOrigins = env.CORS_ORIGINS
@@ -118,6 +118,11 @@ app.use(
     ],
     credentials: true,
   })
+)
+
+app.use(
+  "/rpc/*",
+  createRpcOriginGuard([...allowedCorsOrigins, env.BETTER_AUTH_URL])
 )
 
 app.on(["POST", "GET"], "/api/auth/*", async (c) => {
