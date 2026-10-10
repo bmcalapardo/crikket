@@ -22,12 +22,12 @@ import { handleCaptureFinalize } from "./capture/finalize-route"
 import { handleCaptureToken } from "./capture/token-route"
 import { handleCaptureUploadSession } from "./capture/upload-session-route"
 import { resolveCorsOrigin } from "./cors-origin"
+import { rpcBodyLimit } from "./rpc-body-limit"
 
 const app = new Hono()
 const allowedCorsOrigins = env.CORS_ORIGINS
 const fallbackCorsOrigin = allowedCorsOrigins[0] ?? env.BETTER_AUTH_URL
 const captureShareOrigin = allowedCorsOrigins[0] ?? env.BETTER_AUTH_URL
-const MAX_RPC_REQUEST_BODY_BYTES = 110 * 1024 * 1024
 const BUG_REPORT_INGESTION_INTERVAL_MS = 60 * 1000
 const BUG_REPORT_ORPHAN_CLEANUP_INTERVAL_MS = 60 * 60 * 1000
 const STORAGE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000
@@ -40,21 +40,6 @@ function parseHeaderNumber(value: string | undefined): number | null {
 
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
-}
-
-function buildPayloadTooLargeResponse(maxBytes: number): Response {
-  return new Response(
-    JSON.stringify({
-      code: "PAYLOAD_TOO_LARGE",
-      message: `Request body exceeds ${Math.floor(maxBytes / (1024 * 1024))} MB limit.`,
-    }),
-    {
-      status: 413,
-      headers: {
-        "content-type": "application/json",
-      },
-    }
-  )
 }
 
 function selectStrictestRateLimitHeaders(
@@ -192,20 +177,9 @@ export const rpcHandler = new RPCHandler(appRouter, {
   ],
 })
 
+app.use("/rpc/*", rpcBodyLimit())
+
 app.use("/*", async (c, next) => {
-  if (c.req.method === "POST" && c.req.path.startsWith("/rpc/")) {
-    const contentLengthHeader = c.req.raw.headers.get("content-length")
-    const contentLength = parseHeaderNumber(contentLengthHeader ?? undefined)
-
-    if (
-      contentLengthHeader !== null &&
-      contentLength !== null &&
-      contentLength > MAX_RPC_REQUEST_BODY_BYTES
-    ) {
-      return buildPayloadTooLargeResponse(MAX_RPC_REQUEST_BODY_BYTES)
-    }
-  }
-
   const ipRateLimitDecision = await evaluateRpcRateLimit(c.req.raw, {
     skipUser: true,
   })
