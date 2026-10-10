@@ -16,7 +16,8 @@ import {
   CardTitle,
 } from "@crikket/ui/components/ui/card"
 import { AlertCircle } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { AnnotateStep } from "@/components/annotate-step"
 import { CropStep } from "@/components/crop-step"
 import { FormStep } from "@/components/form-step"
 import { RecordingStep } from "@/components/recording-step"
@@ -27,6 +28,7 @@ import { type CaptureType, useRecorderInit } from "@/hooks/use-recorder-init"
 import { useRecorderRecordingSync } from "@/hooks/use-recorder-recording-sync"
 import { useScreenCapture } from "@/hooks/use-screen-capture"
 import { useTimer } from "@/hooks/use-timer"
+import type { AnnotationHistory } from "@/lib/annotations"
 import {
   discardDebuggerSession,
   getDebuggerSessionSnapshot,
@@ -44,8 +46,12 @@ import {
   isUnauthorizedSubmissionError,
   normalizeOptionalText,
 } from "@/lib/recorder-submit"
+import type { Rect } from "@/lib/screenshot-crop"
 import {
+  annotationBase,
+  applyAnnotations,
   applyScreenshotEdit,
+  resetCrop,
   resetScreenshotEdits,
   type ScreenshotEdits,
   screenshotToSubmit,
@@ -64,6 +70,7 @@ const STATE_DESCRIPTIONS: Record<RecorderState, string> = {
   idle: "Waiting for capture",
   recording: "Recording in progress...",
   editing: "Crop the screenshot",
+  annotating: "Annotate the screenshot",
   stopped: "Review and submit",
   submitting: "Review and submit",
   success: "Report submitted!",
@@ -76,9 +83,12 @@ interface RecorderStepContentProps {
   stopRecordingShortcut: string | null
   onStopRecording: () => Promise<void>
   screenshotEdits: ScreenshotEdits | null
-  onCropApply: (blob: Blob) => void
+  onCropApply: (blob: Blob, rect: Rect) => void
   onCropReset: () => void
   onCropSkip: () => void
+  onAnnotateDone: (history: AnnotationHistory, blob: Blob | null) => void
+  onAnnotateCancel: () => void
+  onAnnotateReset: () => void
   onEditScreenshot: () => void
   captureType: CaptureType
   debuggerSummary: DebuggerCaptureSummary
@@ -108,6 +118,9 @@ function RecorderStepContent({
   onCropApply,
   onCropReset,
   onCropSkip,
+  onAnnotateDone,
+  onAnnotateCancel,
+  onAnnotateReset,
   onEditScreenshot,
   captureType,
   debuggerSummary,
@@ -121,6 +134,8 @@ function RecorderStepContent({
   resultUrl,
   submissionWarnings,
 }: RecorderStepContentProps) {
+  const isEditStage = state === "editing" || state === "annotating"
+
   return (
     <>
       {error ? (
@@ -154,12 +169,24 @@ function RecorderStepContent({
         />
       ) : null}
 
+      {state === "annotating" && screenshotEdits ? (
+        <AnnotateStep
+          hasAppliedCrop={screenshotEdits.edited !== null}
+          imageBlob={annotationBase(screenshotEdits)}
+          initialHistory={screenshotEdits.annotations}
+          onCancel={onAnnotateCancel}
+          onDone={onAnnotateDone}
+          onResetToOriginal={onAnnotateReset}
+          removedCount={screenshotEdits.removedByCrop}
+        />
+      ) : null}
+
       {/* Kept mounted (hidden) while editing so typed form fields survive a
           trip back to the edit stage. */}
       {state === "stopped" ||
       state === "submitting" ||
-      (state === "editing" && screenshotEdits) ? (
-        <div hidden={state === "editing"}>
+      (isEditStage && screenshotEdits) ? (
+        <div hidden={isEditStage}>
           <FormStep
             captureType={captureType}
             debuggerSummary={debuggerSummary}
@@ -193,6 +220,9 @@ function App() {
   const [state, setState] = useState<RecorderState>("idle")
   const [screenshotEdits, setScreenshotEdits] =
     useState<ScreenshotEdits | null>(null)
+  // Crop and annotate are one edit session. This is what the edits were when
+  // the tester entered editing, and what Cancel returns to.
+  const editSessionStartRef = useRef<ScreenshotEdits | null>(null)
   const [captureType, setCaptureType] = useState<CaptureType>("video")
   const [startTime, setStartTime] = useState<number | null>(null)
   const [recordedDurationMs, setRecordedDurationMs] = useState<number | null>(
@@ -380,7 +410,9 @@ function App() {
   useRecorderInit({
     onCaptureTypeChange: setCaptureType,
     onScreenshotLoaded: (blob) => {
-      setScreenshotEdits(startScreenshotEdits(blob))
+      const edits = startScreenshotEdits(blob)
+      editSessionStartRef.current = edits
+      setScreenshotEdits(edits)
       setRecordedDurationMs(null)
       setState("editing")
     },
@@ -388,24 +420,48 @@ function App() {
     onError: (err) => setSubmitError(err),
   })
 
-  const handleCropApply = useCallback((blob: Blob) => {
+  // Crop is followed by annotation, which then hands over to review.
+  const handleCropApply = useCallback((blob: Blob, rect: Rect) => {
     setScreenshotEdits((edits) =>
-      edits ? applyScreenshotEdit(edits, blob) : edits
+      edits ? applyScreenshotEdit(edits, blob, rect) : edits
     )
-    setState("stopped")
+    setState("annotating")
   }, [])
 
   const handleCropReset = useCallback(() => {
-    setScreenshotEdits((edits) => (edits ? resetScreenshotEdits(edits) : edits))
+    setScreenshotEdits((edits) => (edits ? resetCrop(edits) : edits))
   }, [])
 
   const handleCropSkip = useCallback(() => {
+    setState("annotating")
+  }, [])
+
+  const handleAnnotateDone = useCallback(
+    (history: AnnotationHistory, blob: Blob | null) => {
+      setScreenshotEdits((edits) =>
+        edits ? applyAnnotations(edits, history, blob) : edits
+      )
+      setState("stopped")
+    },
+    []
+  )
+
+  // Back to the raw Capture, then on to review.
+  const handleAnnotateReset = useCallback(() => {
+    setScreenshotEdits((edits) => (edits ? resetScreenshotEdits(edits) : edits))
+    setState("stopped")
+  }, [])
+
+  // Abandons the whole edit session, crop included.
+  const handleAnnotateCancel = useCallback(() => {
+    setScreenshotEdits(editSessionStartRef.current)
     setState("stopped")
   }, [])
 
   const handleEditScreenshot = useCallback(() => {
+    editSessionStartRef.current = screenshotEdits
     setState("editing")
-  }, [])
+  }, [screenshotEdits])
 
   const handleReset = () => {
     resetCapture()
@@ -541,6 +597,9 @@ function App() {
             debuggerSummary={debuggerSummary}
             duration={duration}
             error={error}
+            onAnnotateCancel={handleAnnotateCancel}
+            onAnnotateDone={handleAnnotateDone}
+            onAnnotateReset={handleAnnotateReset}
             onCancel={handleReset}
             onCropApply={handleCropApply}
             onCropReset={handleCropReset}
