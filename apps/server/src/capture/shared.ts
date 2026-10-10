@@ -70,15 +70,11 @@ export function toCaptureErrorResponse(
     )
   }
 
-  const message =
-    error instanceof Error
-      ? error.message
-      : "Failed to process capture request."
-
+  // The real error is logged above; never echo SQL, storage or env details.
   return buildJsonResponse(
     {
       code: "INTERNAL_SERVER_ERROR",
-      message,
+      message: "Failed to process capture request.",
     },
     {
       status: 500,

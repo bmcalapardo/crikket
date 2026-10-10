@@ -48,6 +48,7 @@ const publicKeyRecord = {
   status: "active" as const,
   updatedAt: new Date(),
 }
+let finalizeFailure: Error | null = null
 let activePublicKeyValue = publicKeyRecord.key
 let activePublicKeyStatus: "active" | "revoked" = "active"
 
@@ -135,17 +136,22 @@ mock.module("@crikket/bug-reports/lib/upload-session", () => ({
       url: "https://storage.example.com/debugger-upload",
     },
   }),
-  finalizeBugReportUpload: async () => ({
-    debugger: {
-      dropped: { actions: 0, logs: 0, networkRequests: 0 },
-      persisted: { actions: 1, logs: 2, networkRequests: 3 },
-      requested: { actions: 1, logs: 2, networkRequests: 3 },
+  finalizeBugReportUpload: () => {
+    if (finalizeFailure) {
+      return Promise.reject(finalizeFailure)
+    }
+    return Promise.resolve({
+      debugger: {
+        dropped: { actions: 0, logs: 0, networkRequests: 0 },
+        persisted: { actions: 1, logs: 2, networkRequests: 3 },
+        requested: { actions: 1, logs: 2, networkRequests: 3 },
+        warnings: [],
+      },
+      id: "br_123",
+      shareUrl: "/s/br_123",
       warnings: [],
-    },
-    id: "br_123",
-    shareUrl: "/s/br_123",
-    warnings: [],
-  }),
+    })
+  },
 }))
 
 mock.module("@upstash/redis", () => ({
@@ -473,6 +479,30 @@ describe("capture upload session route", () => {
 })
 
 describe("capture finalize route", () => {
+  it("does not leak internal error details on unexpected failures", async () => {
+    mockedEnv.CAPTURE_SUBMIT_TOKEN_SECRET = ""
+    finalizeFailure = new Error(
+      'Failed query: insert into "bug_report" (bucket: crikket-prod)'
+    )
+
+    try {
+      const { handleCaptureFinalize } = await import(
+        CAPTURE_FINALIZE_ROUTE_PATH
+      )
+      const response = await handleCaptureFinalize({
+        request: createFinalizeRequest(),
+        shareOrigin: "https://app.crikket.io",
+      })
+      const body = await response.text()
+
+      expect(response.status).toBe(500)
+      expect(body).not.toContain("Failed query")
+      expect(body).not.toContain("crikket-prod")
+    } finally {
+      finalizeFailure = null
+    }
+  })
+
   it("finalizes without a finalize token when capture protection is disabled", async () => {
     mockedEnv.CAPTURE_SUBMIT_TOKEN_SECRET = ""
 
