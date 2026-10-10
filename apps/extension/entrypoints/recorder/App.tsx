@@ -36,6 +36,17 @@ import {
   markDebuggerRecordingStarted,
 } from "@/lib/bug-report-debugger/client"
 import { submitBugReportWithUploads } from "@/lib/bug-report-upload"
+import { syncDraftBadge } from "@/lib/draft-badge"
+import {
+  editsFromDraft,
+  hasDraftProgress,
+  updateDraft,
+} from "@/lib/draft-session"
+import {
+  createDraftStore,
+  type Draft,
+  type DraftFormFields,
+} from "@/lib/draft-store"
 import type { RecorderState } from "@/lib/recorder-state"
 import {
   buildCaptureContextSubmissionData,
@@ -56,7 +67,6 @@ import {
   resetScreenshotEdits,
   type ScreenshotEdits,
   screenshotToSubmit,
-  startScreenshotEdits,
 } from "@/lib/screenshot-edits"
 import { formatDuration, getDeviceInfo } from "@/lib/utils"
 
@@ -94,6 +104,8 @@ interface RecorderStepContentProps {
   onAnnotateCancel: () => void
   onAnnotateReset: () => void
   onEditScreenshot: () => void
+  onFormValuesChange: (values: DraftFormFields) => void
+  restoredForm: DraftFormFields | null
   captureType: CaptureType
   debuggerSummary: DebuggerCaptureSummary
   suggestedTitle: string
@@ -128,6 +140,8 @@ function RecorderStepContent({
   onAnnotateCancel,
   onAnnotateReset,
   onEditScreenshot,
+  onFormValuesChange,
+  restoredForm,
   captureType,
   debuggerSummary,
   suggestedTitle,
@@ -200,10 +214,12 @@ function RecorderStepContent({
             captureType={captureType}
             debuggerSummary={debuggerSummary}
             initialTitle={suggestedTitle}
+            initialValues={restoredForm ?? undefined}
             isSubmitting={state === "submitting"}
             onCancel={onCancel}
             onEditScreenshot={onEditScreenshot}
             onSubmit={onSubmit}
+            onValuesChange={onFormValuesChange}
             preSubmitWarnings={preSubmitWarnings}
             previewUrl={previewUrl}
             submitError={submitError}
@@ -247,7 +263,14 @@ function App() {
     []
   )
 
-  const captureContext = useCaptureContext()
+  const tabCaptureContext = useCaptureContext()
+  // The screenshot Draft that is open here, and its latest form fields. Drafts
+  // are saved as the tester works, so closing this page loses nothing.
+  const draftRef = useRef<Draft | null>(null)
+  const [restoredForm, setRestoredForm] = useState<DraftFormFields | null>(null)
+  const [draftForm, setDraftForm] = useState<DraftFormFields | null>(null)
+  const draftDiscardedRef = useRef(false)
+  const captureContext = draftRef.current?.context ?? tabCaptureContext
 
   const {
     startRecording: startCapture,
@@ -430,12 +453,17 @@ function App() {
 
   useRecorderInit({
     onCaptureTypeChange: setCaptureType,
-    onScreenshotLoaded: (blob) => {
-      const edits = startScreenshotEdits(blob)
+    onDraftLoaded: (draft) => {
+      const edits = editsFromDraft(draft)
+      draftRef.current = draft
+      setDraftForm(draft.form)
+      setRestoredForm(draft.form)
       editSessionStartRef.current = edits
       setScreenshotEdits(edits)
       setRecordedDurationMs(null)
-      setState("editing")
+      // A fresh Capture starts at crop; a recovered one resumes at review,
+      // with its annotations intact.
+      setState(hasDraftProgress(draft) ? "stopped" : "editing")
     },
     onStartRecording: startVideoCapture,
     onError: (err) => setSubmitError(err),
@@ -484,7 +512,64 @@ function App() {
     setState("editing")
   }, [screenshotEdits])
 
+  const handleFormValuesChange = useCallback((values: DraftFormFields) => {
+    setDraftForm(values)
+  }, [])
+
+  const discardDraft = useCallback(async () => {
+    draftDiscardedRef.current = true
+    const draft = draftRef.current
+    if (!draft) {
+      return
+    }
+    const store = createDraftStore()
+    try {
+      await store.delete(draft.id)
+      await syncDraftBadge(store)
+    } finally {
+      store.close()
+    }
+  }, [])
+
+  // Saves the Draft shortly after any edit or form change.
+  useEffect(() => {
+    const draft = draftRef.current
+    if (
+      !(draft && screenshotEdits) ||
+      draftDiscardedRef.current ||
+      state === "success" ||
+      state === "submitting"
+    ) {
+      return
+    }
+    const timer = setTimeout(() => {
+      if (draftDiscardedRef.current) {
+        return
+      }
+      const next = updateDraft(draft, {
+        edits: screenshotEdits,
+        form: draftForm,
+        now: Date.now(),
+      })
+      draftRef.current = next
+      const store = createDraftStore()
+      // update, not put: a Draft deleted meanwhile (submit, Cancel, the popup)
+      // must stay deleted.
+      store
+        .update(next)
+        .then(() => syncDraftBadge(store))
+        .catch((error: unknown) => {
+          reportNonFatalError("Failed to save the screenshot draft", error)
+        })
+        .finally(() => store.close())
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [draftForm, screenshotEdits, state])
+
   const handleReset = () => {
+    discardDraft().catch((error: unknown) => {
+      reportNonFatalError("Failed to delete the screenshot draft", error)
+    })
     resetCapture()
     setScreenshotEdits(null)
     setState("idle")
@@ -563,6 +648,12 @@ function App() {
         )
       }
 
+      await discardDraft().catch((error: unknown) => {
+        reportNonFatalError(
+          "Failed to delete the screenshot draft after submission",
+          error
+        )
+      })
       setResultUrl(getShareUrl(env.VITE_APP_URL, result.shareUrl))
       setSubmissionWarnings(
         dedupeMessages([...warnings, ...(result.warnings ?? [])])
@@ -629,11 +720,13 @@ function App() {
             onCropReset={handleCropReset}
             onCropSkip={handleCropSkip}
             onEditScreenshot={handleEditScreenshot}
+            onFormValuesChange={handleFormValuesChange}
             onStopRecording={handleStopRecording}
             onSubmit={handleSubmit}
             onTogglePause={handleTogglePause}
             preSubmitWarnings={preSubmitWarnings}
             previewUrl={previewUrl}
+            restoredForm={restoredForm}
             resultUrl={resultUrl}
             screenshotEdits={screenshotEdits}
             state={state}

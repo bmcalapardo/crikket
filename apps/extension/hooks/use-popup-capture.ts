@@ -16,6 +16,13 @@ import {
   RECORDING_STARTED_AT_STORAGE_KEY,
 } from "@/lib/capture-context"
 import { recordCaptureSuccess } from "@/lib/diagnostics/last-capture"
+import { syncDraftBadge } from "@/lib/draft-badge"
+import {
+  buildDraftRecorderUrl,
+  createScreenshotDraft,
+  dataUrlToBlob,
+} from "@/lib/draft-session"
+import { createDraftStore } from "@/lib/draft-store"
 
 export type PopupCaptureType = "video" | "screenshot"
 
@@ -159,14 +166,26 @@ async function startScreenshotCapture(input: {
     }
   )
 
-  await chrome.storage.local.set({
-    [CAPTURE_CONTEXT_STORAGE_KEY]: input.captureContext,
-    pendingScreenshot: base64data,
+  // The Capture goes to IndexedDB as a Blob (not base64 in chrome.storage),
+  // and the recorder loads it by Draft id.
+  const draft = createScreenshotDraft({
+    capture: await dataUrlToBlob(base64data),
+    context: input.captureContext,
+    debuggerSessionId: input.debuggerSessionId,
+    now: Date.now(),
   })
+  const store = createDraftStore()
+  try {
+    await store.put(draft)
+    await syncDraftBadge(store)
+  } finally {
+    store.close()
+  }
   await recordCaptureSuccess("screenshot")
 
-  const recorderUrl = appendDebuggerSessionIdToUrl(
-    chrome.runtime.getURL("/recorder.html?captureType=screenshot"),
+  const recorderUrl = buildDraftRecorderUrl(
+    (path) => chrome.runtime.getURL(path),
+    draft.id,
     input.debuggerSessionId
   )
 

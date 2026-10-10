@@ -1,6 +1,7 @@
 import { reportNonFatalError } from "@crikket/shared/lib/errors"
 import { Button } from "@crikket/ui/components/ui/button"
 import { Keyboard, Stethoscope } from "lucide-react"
+import { DraftList } from "@/components/draft-list"
 import { PopupCaptureActions } from "@/components/popup-capture-actions"
 import { useCommandShortcuts } from "@/hooks/use-command-shortcuts"
 import { useHotkeyTrigger } from "@/hooks/use-hotkey-trigger"
@@ -84,6 +85,8 @@ function App() {
           startScreenshotShortcut={shortcuts.startScreenshot}
           stopRecordingShortcut={shortcuts.stopRecording}
         />
+
+        <DraftList />
 
         <div className="rounded-md border bg-muted p-3">
           <p className="text-muted-foreground text-xs leading-relaxed">

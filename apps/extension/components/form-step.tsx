@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@crikket/ui/components/ui/select"
 import { Textarea } from "@crikket/ui/components/ui/textarea"
-import { useForm } from "@tanstack/react-form"
+import { useForm, useStore } from "@tanstack/react-form"
 import { AlertTriangle } from "lucide-react"
 import { type SyntheticEvent, useCallback, useEffect, useRef } from "react"
 import * as z from "zod"
@@ -67,9 +67,13 @@ interface FormStepProps {
   }) => void
   onCancel: () => void
   onEditScreenshot?: () => void
+  /** Fires on every edit (not on mount), so a Draft can persist the fields. */
+  onValuesChange?: (values: FormValues) => void
+  /** Restores fields from a recovered Draft. */
+  initialValues?: FormValues
 }
 
-interface FormValues {
+export interface FormValues {
   title: string
   description: string
   priority: Priority
@@ -88,8 +92,10 @@ export function FormStep({
   onSubmit,
   onCancel,
   onEditScreenshot,
+  onValuesChange,
+  initialValues,
 }: FormStepProps) {
-  const defaultValues: FormValues = {
+  const defaultValues: FormValues = initialValues ?? {
     title: initialTitle,
     description: "",
     priority: PRIORITY_OPTIONS.none,
@@ -110,6 +116,16 @@ export function FormStep({
       })
     },
   })
+
+  const values = useStore(form.store, (state) => state.values)
+  const hasReportedMountRef = useRef(false)
+  useEffect(() => {
+    if (!hasReportedMountRef.current) {
+      hasReportedMountRef.current = true
+      return
+    }
+    onValuesChange?.(values)
+  }, [onValuesChange, values])
 
   const isBusy = isSubmitting || form.state.isSubmitting
   const totalCapturedEvents =

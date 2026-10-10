@@ -46,3 +46,7 @@ export const BUG_REPORT_SORT_OPTIONS = {
 
 export type BugReportSort =
   (typeof BUG_REPORT_SORT_OPTIONS)[keyof typeof BUG_REPORT_SORT_OPTIONS]
+
+// How long a started upload, and a screenshot Draft waiting to be resumed,
+// stay valid. One value so a Draft never outlives the session it would resume.
+export const BUG_REPORT_UPLOAD_SESSION_TTL_MS = 24 * 60 * 60 * 1000

@@ -6,6 +6,7 @@ import {
 import {
   BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS,
   BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
+  BUG_REPORT_UPLOAD_SESSION_TTL_MS,
 } from "@crikket/shared/constants/bug-report"
 import {
   PRIORITY_OPTIONS,
@@ -48,7 +49,6 @@ const priorityValues = Object.values(PRIORITY_OPTIONS) as [
 
 const MAX_CONTENT_TYPE_LENGTH = 120
 const MAX_CONTENT_ENCODING_LENGTH = 40
-const BUG_REPORT_UPLOAD_SESSION_TTL_MS = 24 * 60 * 60 * 1000
 
 const debuggerSummarySchema = z.object({
   actions: z.number().int().nonnegative(),

@@ -1,21 +1,26 @@
 import { useEffect, useRef } from "react"
+import { readDraftIdFromSearch } from "@/lib/draft-session"
+import { createDraftStore, type Draft } from "@/lib/draft-store"
 
 export type CaptureType = "video" | "screenshot"
 
 interface UseRecorderInitProps {
   onCaptureTypeChange: (type: CaptureType) => void
-  onScreenshotLoaded: (blob: Blob) => void
+  onDraftLoaded: (draft: Draft) => void
   onStartRecording: () => void
   onError: (error: string) => void
 }
 
 export function useRecorderInit({
   onCaptureTypeChange,
-  onScreenshotLoaded,
+  onDraftLoaded,
   onStartRecording,
   onError,
 }: UseRecorderInitProps) {
   const autoStartChecked = useRef(false)
+  // Callers pass inline callbacks, so this effect re-runs on every render. The
+  // Draft must load once, or a re-load would overwrite the tester's edits.
+  const draftLoadStarted = useRef(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -23,22 +28,32 @@ export function useRecorderInit({
     onCaptureTypeChange(type)
 
     if (type === "screenshot") {
-      chrome.storage.local.get(["pendingScreenshot"], (result) => {
-        if (result.pendingScreenshot) {
-          fetch(result.pendingScreenshot as string)
-            .then((res) => res.blob())
-            .then((blob) => {
-              onScreenshotLoaded(blob)
-              chrome.storage.local.remove(["pendingScreenshot"])
-            })
-            .catch((err) => {
-              console.error("Failed to load screenshot:", err)
-              onError("Failed to load screenshot")
-            })
-        }
-      })
+      const draftId = readDraftIdFromSearch(window.location.search)
+      if (!draftId || draftLoadStarted.current) {
+        return
+      }
+      draftLoadStarted.current = true
+      const store = createDraftStore()
+      store
+        .get(draftId)
+        .then((draft) => {
+          if (!draft) {
+            onError(
+              "This draft is no longer available. It may have expired or been deleted."
+            )
+            return
+          }
+          onDraftLoaded(draft)
+        })
+        .catch((err) => {
+          console.error("Failed to load screenshot draft:", err)
+          onError("Failed to load screenshot")
+        })
+        .finally(() => store.close())
     } else if (type === "video") {
-      if (autoStartChecked.current) return
+      if (autoStartChecked.current) {
+        return
+      }
       autoStartChecked.current = true
 
       chrome.storage.local.get(["startRecordingImmediately"], (result) => {
@@ -48,5 +63,5 @@ export function useRecorderInit({
         }
       })
     }
-  }, [onCaptureTypeChange, onScreenshotLoaded, onStartRecording, onError])
+  }, [onCaptureTypeChange, onDraftLoaded, onStartRecording, onError])
 }

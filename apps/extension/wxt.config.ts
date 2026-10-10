@@ -47,7 +47,14 @@ export default defineConfig({
         description: "Pause or resume video recording",
       },
     },
-    permissions: ["activeTab", "scripting", "storage", "tabCapture", "tabs"],
+    permissions: [
+      "activeTab",
+      "alarms",
+      "scripting",
+      "storage",
+      "tabCapture",
+      "tabs",
+    ],
     host_permissions: ["<all_urls>"],
 
     browser_specific_settings: {
