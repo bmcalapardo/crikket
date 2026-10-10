@@ -32,3 +32,4 @@
 - [BC] feat(extension): annotate screenshots with pen, undo/redo and click-to-delete (#13)
 
 ### v0.3.0
+- [BC] ci: widen docker and extension release path filters and run docker checks on prerelease PRs
