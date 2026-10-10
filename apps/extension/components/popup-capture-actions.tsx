@@ -7,6 +7,7 @@ import { formatDuration } from "@/lib/utils"
 interface PopupCaptureActionsProps {
   isBusy: boolean
   isRecordingInProgress: boolean
+  isRecordingPaused: boolean
   recordingCountdown: number | null
   recordingDurationMs: number
   pendingCaptureType: PopupCaptureType | null
@@ -22,6 +23,7 @@ interface PopupCaptureActionsProps {
 export function PopupCaptureActions({
   isBusy,
   isRecordingInProgress,
+  isRecordingPaused,
   recordingCountdown,
   recordingDurationMs,
   pendingCaptureType,
@@ -48,7 +50,7 @@ export function PopupCaptureActions({
         <div className="space-y-2">
           <div className="rounded-md border bg-destructive/5 p-3 text-center">
             <p className="font-medium text-destructive text-sm">
-              Recording now
+              {isRecordingPaused ? "Recording paused" : "Recording now"}
             </p>
             <p className="font-mono font-semibold text-destructive text-xl">
               {formatDuration(recordingDurationMs)}

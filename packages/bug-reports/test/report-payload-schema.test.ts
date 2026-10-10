@@ -74,4 +74,22 @@ describe("report payload schemas", () => {
       viewport: "1440x900",
     })
   })
+
+  it("rejects a durationMs that is negative, fractional, non-finite or over 24h", () => {
+    for (const durationMs of [
+      -1,
+      1.5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.MAX_SAFE_INTEGER,
+      24 * 60 * 60 * 1000 + 1,
+      "1000",
+    ]) {
+      expect(metadataInputSchema.safeParse({ durationMs }).success).toBe(false)
+    }
+    expect(
+      metadataInputSchema.safeParse({ durationMs: 24 * 60 * 60 * 1000 }).success
+    ).toBe(true)
+    expect(metadataInputSchema.safeParse({ durationMs: 0 }).success).toBe(true)
+  })
 })
