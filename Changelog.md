@@ -37,3 +37,4 @@
 - [BC] feat(qa-fixtures): add a known-bad page with deterministic bug scenarios (#34)
 - [BC] app(fix): show the sign-in message for opaque redirects and require an origin-only VITE_APP_URL
 - [BC] test(extension): wait on conditions instead of ticks and best-of-N timing so tests pass under load
+- [BC] ci: widen docker and extension release path filters and run docker checks on prerelease PRs

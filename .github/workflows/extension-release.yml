@@ -15,12 +15,24 @@ on:
       - "prerelease/v*"
     tags:
       - "extension-v*"
+    # The extension, every workspace package it depends on (directly or through
+    # @crikket/api), and the root files that decide how it is built.
     paths:
       - "apps/extension/**"
+      - "packages/api/**"
+      - "packages/auth/**"
+      - "packages/billing/**"
+      - "packages/bug-reports/**"
       - "packages/capture-core/**"
+      - "packages/config/**"
+      - "packages/db/**"
       - "packages/env/**"
       - "packages/shared/**"
       - "packages/ui/**"
+      - "package.json"
+      - "bun.lock"
+      - "turbo.json"
+      - "tsconfig.json"
       - ".github/workflows/extension-release.yml"
   workflow_dispatch:
     inputs:
