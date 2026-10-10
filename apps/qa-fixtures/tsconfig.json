@@ -1,0 +1,8 @@
+{
+  "extends": "@crikket/config/tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src", "test", "api"],
+  "exclude": ["dist", "node_modules"]
+}
