@@ -30,3 +30,5 @@
 - [BC] app(fix): route extension RPC through the web app so sign-in authorizes it
 - [BC] app(fix): harden redaction of secrets in captured debugger data
 - [BC] feat(extension): annotate screenshots with pen, undo/redo and click-to-delete (#13)
+
+### v0.3.0
