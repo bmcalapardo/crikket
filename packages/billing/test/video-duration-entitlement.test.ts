@@ -9,6 +9,28 @@ const PRO_LIMIT_MS = billingPlanEntitlementsConfig.pro
   .maxVideoDurationMs as number
 
 describe("video duration entitlement", () => {
+  it("accepts zero and the sanity cap exactly, rejects non-numbers", () => {
+    const unlimitedByPlan = MAX_REPORTED_VIDEO_DURATION_MS + 1
+    expect(
+      evaluateVideoDuration({
+        durationMs: 0,
+        maxVideoDurationMs: unlimitedByPlan,
+      })
+    ).toEqual({ ok: true })
+    expect(
+      evaluateVideoDuration({
+        durationMs: MAX_REPORTED_VIDEO_DURATION_MS,
+        maxVideoDurationMs: unlimitedByPlan,
+      })
+    ).toEqual({ ok: true })
+    expect(
+      evaluateVideoDuration({
+        durationMs: "5",
+        maxVideoDurationMs: PRO_LIMIT_MS,
+      })
+    ).toEqual({ ok: false, reason: "invalid" })
+  })
+
   it("measures playable length: a 4 minute video with a 5 minute pause fits a 10 minute plan", () => {
     // Wall clock was 9 minutes, but the client reports the playable 4.
     expect(

@@ -82,6 +82,30 @@ describe("video entitlements measure playable duration", () => {
     await expect(submit(1)).rejects.toMatchObject({ code: "FORBIDDEN" })
   })
 
+  it("blocks organizations that cannot create bug reports at all", async () => {
+    state.entitlements = {
+      canCreateBugReports: false,
+      canUploadVideo: true,
+      maxVideoDurationMs: null,
+    }
+    await expect(submit(1)).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(
+      assertCreateBugReportEntitlements({
+        organizationId: "org",
+        payload: { attachmentType: "screenshot" },
+      })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" })
+  })
+
+  it("treats a video with no metadata object as missing duration", async () => {
+    await expect(
+      assertCreateBugReportEntitlements({
+        organizationId: "org",
+        payload: { attachmentType: "video" },
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" })
+  })
+
   it("does not look at duration for screenshots", async () => {
     await expect(
       assertCreateBugReportEntitlements({
