@@ -1,0 +1,32 @@
+name: Hotfix approval
+
+# A hotfix/ PR may go straight to master, but only after the maintainer
+# approves the deployment to the `hotfix-approval` environment (required
+# reviewer, "prevent self-review" off). A PR review cannot do this job because
+# GitHub does not let an author approve their own PR. The job is skipped for
+# every other branch, which counts as passing when this check is required.
+# Not triggered by label changes, so approval is asked once per push.
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hotfix-approval-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  hotfix-approval:
+    name: Hotfix approval
+    if: ${{ startsWith(github.head_ref, 'hotfix/') }}
+    runs-on: ubuntu-latest
+    environment: hotfix-approval
+    steps:
+      - name: Approved
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: echo "Hotfix $HEAD_REF approved for master."

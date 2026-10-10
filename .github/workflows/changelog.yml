@@ -1,11 +1,17 @@
 name: Changelog
 
-# Enforces "Changelog and Versioning" in CONTRIBUTING.md. Runs on label
-# changes too, so adding or removing `skip-changelog` re-evaluates the PR.
+# Enforces "Changelog and Versioning" in CONTRIBUTING.md through
+# apps/extension/scripts/check-changelog.ts. Runs on label changes too, so
+# adding or removing `skip-changelog` re-evaluates the PR.
+#
+# - PR into prerelease/vX.Y.Z: append-only changelog line, block version.
+# - PR into master: only a prerelease/vX.Y.Z block (validated whole) or a
+#   hotfix/ branch (see hotfix-approval.yml).
 on:
   pull_request:
     branches:
       - master
+      - "prerelease/**"
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
@@ -25,25 +31,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      # The changesets "Version Packages" PR only touches package changelogs.
-      - name: Check changelog entry
-        if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-changelog') && !startsWith(github.head_ref, 'changeset-release/') }}
+      # The script only uses node built-ins, so no dependency install.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+
+      - name: Check changelog
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: |
-          if git diff --name-only "origin/$BASE_REF...HEAD" | grep -qx 'Changelog.md'; then
-            echo "Changelog.md is updated."
-          else
-            echo "::error file=Changelog.md::Add a '- [Initials] <commit subject>' line under the last version heading in Changelog.md (CONTRIBUTING.md, Changelog and Versioning), or label the PR skip-changelog."
-            exit 1
-          fi
-
-      - name: Check version matches changelog
-        run: |
-          heading=$(grep -E '^### v[0-9]+\.[0-9]+\.[0-9]+$' Changelog.md | tail -n 1 | sed -E 's/^### v//')
-          version=$(jq -r .version apps/extension/package.json)
-          if [ "$heading" != "$version" ]; then
-            echo "::error file=apps/extension/package.json::Extension version $version does not match the last Changelog.md heading v$heading. Keep them in sync (CONTRIBUTING.md, Changelog and Versioning)."
-            exit 1
-          fi
-          echo "Extension version $version matches the last Changelog.md heading."
+          HEAD_REF: ${{ github.head_ref }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: bun apps/extension/scripts/check-changelog.ts

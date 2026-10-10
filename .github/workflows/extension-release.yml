@@ -3,14 +3,16 @@ name: Release Extension
 # Tag prefix is fixed at `extension-v*`. A bare `v*` already triggers
 # docker-publish.yml, and the two patterns do not overlap.
 #
-# A merge to master that touches the extension (or a workspace package it
-# bundles) publishes an alpha automatically. `paths` is not evaluated for
-# tag pushes, so tags always run. The tag the release creates is pushed
-# with GITHUB_TOKEN, which does not trigger workflows, so there is no loop.
+# A push to prerelease/vX.Y.Z (a feature PR merged into the block) publishes
+# X.Y.Z-alpha.N; a push to master (the block merged) publishes X.Y.Z-beta.N.
+# Both need a change under `paths`. `paths` is not evaluated for tag pushes,
+# so tags always run. The tag the release creates is pushed with
+# GITHUB_TOKEN, which does not trigger workflows, so there is no loop.
 on:
   push:
     branches:
       - master
+      - "prerelease/v*"
     tags:
       - "extension-v*"
     paths:
@@ -48,7 +50,8 @@ jobs:
       prerelease: ${{ steps.plan.outputs.prerelease }}
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || (github.ref_type == 'tag' && github.ref_name || '') }}
-      ALPHA_BUILD_NUMBER: ${{ github.event_name == 'push' && github.ref_type == 'branch' && github.run_number || '' }}
+      BUILD_NUMBER: ${{ github.event_name == 'push' && github.ref_type == 'branch' && github.run_number || '' }}
+      RELEASE_BRANCH: ${{ github.event_name == 'push' && github.ref_type == 'branch' && github.ref_name || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

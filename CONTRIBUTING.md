@@ -135,17 +135,23 @@ https://www.conventionalcommits.org/ or check out the
 
 ## Changelog and Versioning
 
-`Changelog.md` is the single history of changes. Its **last** `### vX.Y.Z` heading is the version in progress, and `apps/extension/package.json` `version` always matches it (the release workflow and automatic alpha builds read that version). CI fails a pull request that breaks either rule.
+`Changelog.md` is the single history of changes. Its **last** `### vX.Y.Z` heading is the version in progress, and `apps/extension/package.json` `version` always matches it (the release workflow and automatic builds read that version). CI fails a pull request that breaks either rule.
 
-### Every pull request
+Changes are grouped into **blocks**, one per version. Each block lives on its own `prerelease/vX.Y.Z` branch, so the changelog can be reviewed before the block reaches `master`.
 
-Add one line under the last heading in `Changelog.md`, using your initials and the PR's commit subject:
+### Opening a block
+
+Cut `prerelease/vX.Y.Z` from `master`. Its first pull request (or a direct first commit) adds the `### vX.Y.Z` heading at the bottom of `Changelog.md`, with its first line, and sets `apps/extension/package.json` to `X.Y.Z`. Pick the version level below, and see [Cutting a version](#cutting-a-version) for when the previous version counts as shipped.
+
+### Every feature pull request
+
+Branch from the block's prerelease branch and open the PR **into** `prerelease/vX.Y.Z`, not `master`. Add one line under the last heading in `Changelog.md`, using your initials and the PR's commit subject:
 
 ```
 - [BC] feat(extension): add screenshot crop stage before submit
 ```
 
-Append only; earlier versions are history and stay as written. A PR with nothing worth recording (for example a typo fix) can carry the `skip-changelog` label instead.
+The format is `- [Initials] type(scope): subject`: initials in capitals, a lowercase type, an optional lowercase scope, then a subject. Append only; earlier versions and lines already in the block stay as written. A PR with nothing worth recording (for example a typo fix) can carry the `skip-changelog` label instead.
 
 ### Choosing the version level
 
@@ -155,12 +161,22 @@ The version in progress reflects the largest change merged under it:
 - **Minor** (`0.1.3` → `0.2.0`): a new capability testers will notice, or a repo-wide change to tooling, CI, builds, releases, or major dependencies.
 - **Major** (`0.x` → `1.0.0`): a breaking change, such as testers having to reinstall or older reports no longer working.
 
-If your PR is a larger change than the version in progress allows, raise it in the same PR: rename the last heading and update `apps/extension/package.json` to match.
+If a feature PR is a larger change than the block allows, raise the version in the same PR: rename the last heading and update `apps/extension/package.json`, then rename the branch to match (`prerelease/vX.Y.Z` must equal both).
+
+### Merging the block
+
+When the block is ready, open one PR from `prerelease/vX.Y.Z` into `master`. CI checks that the branch version equals the last heading and `package.json`, and that the block's section is non-empty and every line follows the format. Merging it publishes a beta, `extension-vX.Y.Z-beta.N`.
+
+Every push to `prerelease/vX.Y.Z` (that is, every merged feature PR) publishes an alpha, `extension-vX.Y.Z-alpha.N`. `N` is the workflow run number, so it always increases and an alpha and a beta never share a tag.
+
+### Hotfixes
+
+A PR into `master` must come from a `prerelease/vX.Y.Z` branch or from a branch named `hotfix/...`. Anything else is rejected. A hotfix PR also needs the maintainer to approve the `hotfix-approval` deployment in the Actions tab. Add its changelog line under `master`'s last heading; if that version already has a stable tag, open the next patch heading and bump `package.json` instead. Any open block then merges `master` into its prerelease branch and resolves the changelog conflict.
 
 ### Cutting a version
 
 1. Copy the version's section from `Changelog.md` into `releases/vX.Y.Z.md` (see `releases/template.md`) and push the stable tag `extension-vX.Y.Z` (see the extension install docs).
-2. The next pull request opens the next version: add a new `### vX.Y.Z` heading at the bottom of `Changelog.md` with its entry, and set `apps/extension/package.json` to that version, at the level its change calls for.
+2. The next block opens the next version, as described in [Opening a block](#opening-a-block).
 
 ## Security
 
