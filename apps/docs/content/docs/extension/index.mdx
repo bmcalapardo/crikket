@@ -27,7 +27,7 @@ For a beta or stable release:
 1. Set `version` in `apps/extension/package.json` (extension versions are not managed by changesets).
 2. Push a matching tag, for example `extension-v0.1.2-beta.1` or `extension-v0.1.2`. The tag must agree with `package.json` or the workflow fails.
 
-Both automatic and tagged releases need the repository variables `EXTENSION_APP_URL` and `EXTENSION_SERVER_URL`; the build fails without them.
+Both automatic and tagged releases need the repository variable `EXTENSION_APP_URL` (the deployed web app); the build fails without it.
 
 ## Prerequisites
 
@@ -48,14 +48,13 @@ bun install
   cp apps/extension/.env.example apps/extension/.env
   ```
 
-  Default values:
+  Default value:
 
   ```bash
   VITE_APP_URL=http://localhost:3001
-  VITE_SERVER_URL=http://localhost:3000
   ```
 
-  If your app is deployed, replace those with deployed URLs.
+  If your app is deployed, replace it with the deployed web app URL. The extension reaches the server through the web app's `/rpc` proxy, the same origin where signing in sets the session cookie.
 
   </Step>
 
